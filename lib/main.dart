@@ -13,7 +13,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Auth Demo',
       theme: ThemeData(primarySwatch: Colors.blue),
-      initialRoute: AppRoutes.onBoarding,
+      initialRoute: AppRoutes.login,
       routes: AppRoutes.routes,
     );
   }

@@ -1,11 +1,34 @@
+import 'dart:convert';
+
 import 'package:android_basic/constants.dart';
 import 'package:android_basic/screens/signup_screen.dart';
 import 'package:android_basic/widgets/custom_button.dart';
 import 'package:android_basic/widgets/custom_widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
+
+  void handleLogin() async {
+    print("login clicked");
+    final url = Uri.parse("https://randomuser.me/api/?results=5");
+
+    try {
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        // Giải mã JSON
+        final data = json.decode(response.body);
+        print("Dữ liệu nhận được:");
+        print(data);
+      } else {
+        print("Lỗi: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("Đã xảy ra lỗi: $e");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,7 +116,11 @@ class LoginScreen extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: 30),
-                CustomButton(text: "Sign in", isLarge: true, onPressed: () {}),
+                CustomButton(
+                  text: "Sign in",
+                  isLarge: true,
+                  onPressed: handleLogin,
+                ),
                 SizedBox(height: 40),
                 InkWell(
                   onTap: () {
