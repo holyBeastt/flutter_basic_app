@@ -1,6 +1,6 @@
-# android_basic
+# KMB Application of KMA
 
-A new Flutter project.
+App fake zoom của kma.
 
 ## Getting Started
 
