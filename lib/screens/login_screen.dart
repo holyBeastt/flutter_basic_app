@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../config/server.dart';
 
+import 'package:awesome_dialog/awesome_dialog.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -36,6 +38,17 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+
+        AwesomeDialog(
+          context: context,
+          dialogType: DialogType.success,
+          animType: AnimType.rightSlide,
+          title: 'Dialog Title',
+          desc: 'Đăng nhập thành công',
+          btnCancelOnPress: () {},
+          btnOkOnPress: () {},
+        )..show();
+
         print("Dữ liệu nhận được:");
         print(data);
       } else {
