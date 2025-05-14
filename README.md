@@ -1,6 +1,6 @@
 # KMB Application of KMA
 
-App fake zoom của kma
+App fake zoom của kma.
 
 ## Getting Started
 
