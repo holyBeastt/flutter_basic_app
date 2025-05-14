@@ -76,13 +76,22 @@ class SocialButton extends StatelessWidget {
 }
 
 class CustomTextfield extends StatelessWidget {
-  const CustomTextfield({super.key, required this.hint});
+  const CustomTextfield({
+    super.key,
+    required this.hint,
+    required this.controller,
+    this.obscureText = false,
+  });
 
   final String hint;
+  final TextEditingController controller;
+  final bool obscureText;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
+      controller: controller,
+      obscureText: obscureText,
       decoration: InputDecoration(
         fillColor: lightBlue,
         filled: true,

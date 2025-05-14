@@ -6,24 +6,41 @@ import 'package:android_basic/widgets/custom_button.dart';
 import 'package:android_basic/widgets/custom_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../config/server.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final usernameController = TextEditingController();
+  final passwordController = TextEditingController();
+
   void handleLogin() async {
-    print("login clicked");
-    final url = Uri.parse("https://randomuser.me/api/?results=5");
+    final url = Uri.parse('$baseUrl/api/auth/user/login');
+
+    final body = jsonEncode({
+      'username': usernameController.text.trim(),
+      'password': passwordController.text.trim(),
+    });
 
     try {
-      final response = await http.get(url);
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: body,
+      );
 
       if (response.statusCode == 200) {
-        // Giải mã JSON
         final data = json.decode(response.body);
         print("Dữ liệu nhận được:");
         print(data);
       } else {
         print("Lỗi: ${response.statusCode}");
+        print("Body: ${response.body}");
       }
     } catch (e) {
       print("Đã xảy ra lỗi: $e");
@@ -59,31 +76,6 @@ class LoginScreen extends StatelessWidget {
               ),
             ),
           ),
-          Positioned(
-            left: -264,
-            bottom: -120,
-            child: Container(
-              height: 372,
-              width: 372,
-              decoration: BoxDecoration(
-                border: Border.all(color: lightBlue, width: 2),
-              ),
-            ),
-          ),
-          Positioned(
-            left: -260,
-            bottom: -120,
-            child: Transform.rotate(
-              angle: -0.99999,
-              child: Container(
-                height: 372,
-                width: 372,
-                decoration: BoxDecoration(
-                  border: Border.all(color: lightBlue, width: 2),
-                ),
-              ),
-            ),
-          ),
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 22),
             child: Column(
@@ -100,9 +92,19 @@ class LoginScreen extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: 120),
-                CustomTextfield(hint: "Username"),
+
+                // Gắn controller vào CustomTextfield
+                CustomTextfield(
+                  hint: "Username",
+                  controller: usernameController,
+                ),
                 SizedBox(height: 20),
-                CustomTextfield(hint: "Password"),
+                CustomTextfield(
+                  hint: "Password",
+                  controller: passwordController,
+                  obscureText: true,
+                ),
+
                 SizedBox(height: 25),
                 Align(
                   alignment: Alignment.centerRight,
