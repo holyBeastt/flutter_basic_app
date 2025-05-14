@@ -89,90 +89,96 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 22),
-            child: Column(
-              children: [
-                SizedBox(height: 100),
-                Text("Login here", style: h2),
-                SizedBox(height: 10),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 50),
-                  child: Text(
-                    "Wellcome back",
-                    style: h2.copyWith(fontSize: 18, color: black),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                SizedBox(height: 120),
-
-                // Gắn controller vào CustomTextfield
-                CustomTextfield(
-                  hint: "Username",
-                  controller: usernameController,
-                ),
-                SizedBox(height: 20),
-                CustomTextfield(
-                  hint: "Password",
-                  controller: passwordController,
-                  obscureText: true,
-                ),
-
-                SizedBox(height: 25),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    "Forgot your password",
-                    style: body.copyWith(
-                      fontSize: 16,
-                      color: primary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                SizedBox(height: 30),
-                CustomButton(
-                  text: "Sign in",
-                  isLarge: true,
-                  onPressed: handleLogin,
-                ),
-                SizedBox(height: 40),
-                InkWell(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => SignupScreen()),
-                    );
-                  },
-                  child: Text(
-                    "Create new account",
-                    style: body.copyWith(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                SizedBox(height: 50),
-                Text(
-                  "Or continue with",
-                  style: body.copyWith(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: primary,
-                  ),
-                ),
-                SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+          SafeArea(
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 22),
+                child: Column(
                   children: [
-                    SocialButton(iconPath: "assets/google_icon.png"),
-                    SizedBox(width: 10),
-                    SocialButton(iconPath: "assets/facebook_icon.png"),
-                    SizedBox(width: 10),
-                    SocialButton(iconPath: "assets/apple_icon.png"),
+                    SizedBox(height: 100),
+                    Text("Login here", style: h2),
+                    SizedBox(height: 10),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 50),
+                      child: Text(
+                        "Wellcome back",
+                        style: h2.copyWith(fontSize: 18, color: black),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    SizedBox(height: 120),
+
+                    // Gắn controller vào CustomTextfield
+                    CustomTextfield(
+                      hint: "Username",
+                      controller: usernameController,
+                    ),
+                    SizedBox(height: 20),
+                    CustomTextfield(
+                      hint: "Password",
+                      controller: passwordController,
+                      obscureText: true,
+                    ),
+
+                    SizedBox(height: 25),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        "Forgot your password",
+                        style: body.copyWith(
+                          fontSize: 16,
+                          color: primary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 30),
+                    CustomButton(
+                      text: "Sign in",
+                      isLarge: true,
+                      onPressed: handleLogin,
+                    ),
+                    SizedBox(height: 40),
+                    InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => SignupScreen(),
+                          ),
+                        );
+                      },
+                      child: Text(
+                        "Create new account",
+                        style: body.copyWith(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 50),
+                    Text(
+                      "Or continue with",
+                      style: body.copyWith(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: primary,
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SocialButton(iconPath: "assets/google_icon.png"),
+                        SizedBox(width: 10),
+                        SocialButton(iconPath: "assets/facebook_icon.png"),
+                        SizedBox(width: 10),
+                        SocialButton(iconPath: "assets/apple_icon.png"),
+                      ],
+                    ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
         ],
