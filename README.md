@@ -1,5 +1,4 @@
-# android_basic
-# KMB Applicaton of KMA
+# KMB Application of KMA
 
 App fake zoom của kma
 
