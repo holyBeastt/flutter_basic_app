@@ -1,10 +1,12 @@
 import 'dart:convert';
 
 import 'package:android_basic/constants.dart';
+import 'package:android_basic/screens/home_screen.dart';
 import 'package:android_basic/screens/signup_screen.dart';
 import 'package:android_basic/widgets/custom_button.dart';
 import 'package:android_basic/widgets/custom_widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import '../config/server.dart';
 
@@ -20,6 +22,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final usernameController = TextEditingController();
   final passwordController = TextEditingController();
+  static final _storage = const FlutterSecureStorage();
 
   void handleLogin() async {
     final url = Uri.parse('$baseUrl/api/auth/user/login');
@@ -37,20 +40,22 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        final data = jsonDecode(response.body);
 
-        AwesomeDialog(
-          context: context,
-          dialogType: DialogType.success,
-          animType: AnimType.rightSlide,
-          title: 'Dialog Title',
-          desc: 'Đăng nhập thành công',
-          btnCancelOnPress: () {},
-          btnOkOnPress: () {},
-        )..show();
+        final token = data['token'];
+        final user = data['user']?['username'] ?? 'Ẩn danh';
 
-        print("Dữ liệu nhận được:");
-        print(data);
+        // ✅ Lưu token sau khi đăng nhập
+        await _storage.write(key: 'jwt_token', value: token);
+
+        // Lưu id, họ tên user
+        await _storage.write(key: 'user', value: user);
+
+        // Chuyển hướng sang màn hình chính
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => HomeScreen()),
+        );
       } else {
         print("Lỗi: ${response.statusCode}");
         print("Body: ${response.body}");

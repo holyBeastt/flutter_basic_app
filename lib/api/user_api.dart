@@ -1,0 +1,40 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../config/server.dart';
+
+class UserAPI {
+  // Kho lưu trữ an toàn cho token (mobile)
+  static final _storage = const FlutterSecureStorage();
+
+  /// Đọc token đã lưu sau khi login
+  static Future<String?> _getToken() async {
+    return await _storage.read(key: 'jwt_token'); // key bạn đặt khi lưu
+  }
+
+  /// Lấy tên user bằng JWT
+  static Future<String> fetchUserName() async {
+    final token = await _getToken();
+    if (token == null) throw Exception('Chưa đăng nhập');
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/user/get-user-info'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+
+      // Lấy name nằm trong user
+      final name = data['user']?['username'] ?? 'Ẩn danh';
+      return name;
+    } else if (response.statusCode == 401 || response.statusCode == 403) {
+      throw Exception('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại');
+    } else {
+      throw Exception('Lỗi tải dữ liệu: ${response.statusCode}');
+    }
+  }
+}

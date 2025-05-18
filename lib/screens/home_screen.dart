@@ -1,125 +1,154 @@
+import 'package:android_basic/api/user_api.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../helpers/auth_helper.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({Key? key}) : super(key: key);
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int _selectedIndex = 0;
+  String username = "Username ...";
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    getUserName();
+  }
+
+  Future<void> getUserName() async {
+    final name = await AuthHelper.getUsernameFromToken();
+
+    setState(() {
+      username = name ?? 'Ẩn danh';
+    });
+  }
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final List<Map<String, String>> courses = [
-      {
-        'title': 'Tay Mơ Blender 3D',
-        'instructor': 'Nguyễn Vũ Hoàng Hiệp',
-        'image': 'https://img-b.udemycdn.com/course/240x135/123456.jpg',
-      },
-      {
-        'title': 'Figmarketing cho Designer',
-        'instructor': 'Telos Academy',
-        'image': 'https://img-b.udemycdn.com/course/240x135/654321.jpg',
-      },
-    ];
-
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: ListView(
+        child: Column(
           children: [
-            _buildPromoBanner(),
-            _buildMainImageSection(),
-            _buildMainText(),
-            _buildRecommendationTitle(),
-            _buildCourseGrid(courses),
+            _buildLoginHeader(),
+            Expanded(child: _buildPromoSection()),
           ],
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.black,
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Nổi bật'),
-          BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Tìm kiếm'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.play_circle_fill),
-            label: 'Học tập',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite_border),
-            label: 'Wishlist',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Tài khoản'),
+      bottomNavigationBar: _buildBottomNavigationBar(),
+    );
+  }
+
+  Widget _buildLoginHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      color: Colors.black,
+      alignment: Alignment.centerRight,
+      child: Text(
+        username,
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 16,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPromoSection() {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildFeaturePromo(),
+          _buildSkillsHeadline(),
+          _buildCourseRecommendation(),
+          _buildCoursesList(),
         ],
       ),
     );
   }
 
-  Widget _buildPromoBanner() {
+  Widget _buildFeaturePromo() {
     return Container(
-      color: Colors.yellow[200],
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-      child: Row(
+      height: 240,
+      width: double.infinity,
+      color: const Color(0xFF8A56FF),
+      padding: const EdgeInsets.all(16),
+      child: Stack(
         children: [
-          Expanded(
-            child: Text.rich(
-              TextSpan(
-                text: 'Sale trong mùa: Các khóa học từ 199.000 ₫\n',
-                style: TextStyle(color: Colors.black),
-                children: [
-                  TextSpan(
-                    text: 'Còn lại 8 ngày!',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ],
+          Positioned(
+            right: 0,
+            top: 20,
+            child: Container(
+              width: 200,
+              height: 180,
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(100),
+              ),
+              child: ClipPath(
+                clipper: CustomClipPath(),
+                child: Image.network(
+                  'https://api.placeholder.com/400/320',
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
           ),
-          Icon(Icons.close, color: Colors.black),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMainImageSection() {
-    return Image.network(
-      'https://img.freepik.com/free-photo/young-man-working-laptop-cafe_1303-26457.jpg',
-      fit: BoxFit.cover,
-    );
-  }
-
-  Widget _buildMainText() {
-    return Padding(
-      padding: const EdgeInsets.all(12.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Các kỹ năng mở ra cánh cửa thành công cho bạn',
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+          Positioned(
+            left: 0,
+            right: 100,
+            bottom: 40,
+            child: Container(
+              width: 200,
+              child: const Text(
+                'Các kỹ năng mở ra cánh cửa thành công cho bạn',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 24,
+                ),
+              ),
             ),
           ),
-          SizedBox(height: 6),
-          Text(
-            'Đây là đợt ưu đãi hấp dẫn nhất mùa này của chúng tôi. Mở ra cơ hội nghề nghiệp mới với các khóa học có giá từ 199.000 ₫.',
-            style: GoogleFonts.poppins(color: Colors.white70),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildRecommendationTitle() {
-    return Padding(
-      padding: const EdgeInsets.all(12.0),
-      child: Text.rich(
-        TextSpan(
-          text: 'Vì bạn đã xem ',
-          style: GoogleFonts.poppins(color: Colors.white),
+  Widget _buildSkillsHeadline() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: const Text(
+        'Đây là đợt ưu đãi hấp dẫn nhất mùa này của chúng tôi. Mở ra các cơ hội nghề nghiệp mới với các khóa học có giá từ 199.000 đ. Ưu đãi sẽ kết',
+        style: TextStyle(color: Colors.white, fontSize: 14),
+      ),
+    );
+  }
+
+  Widget _buildCourseRecommendation() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: RichText(
+        text: const TextSpan(
+          style: TextStyle(color: Colors.white, fontSize: 14),
           children: [
+            TextSpan(text: 'Vì bạn đã xem "'),
             TextSpan(
-              text: '"Canva 101 - Làm chủ kỹ năng thiết kế Canva..."',
-              style: GoogleFonts.poppins(color: Colors.purpleAccent),
+              text: 'Canva 101 - Làm chủ kỹ năng thiết kế Canva cho ...',
+              style: TextStyle(color: Color(0xFF9370DB)),
             ),
           ],
         ),
@@ -127,61 +156,230 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCourseGrid(List<Map<String, String>> courses) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: GridView.count(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 0.75,
-        shrinkWrap: true,
-        physics: NeverScrollableScrollPhysics(),
-        children: courses.map((course) => _buildCourseCard(course)).toList(),
-      ),
-    );
-  }
-
-  Widget _buildCourseCard(Map<String, String> course) {
+  Widget _buildCoursesList() {
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey[900],
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.only(top: 16),
+      height: 300,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
-            child: Image.network(
-              course['image']!,
-              height: 100,
-              width: double.infinity,
-              fit: BoxFit.cover,
-            ),
+          _buildCourseCard(
+            'Tay Mơ Blender 3D',
+            'Nguyễn Vũ Hoàng Hiệp',
+            '199.000 đ',
+            '799.000 đ',
+            4.6,
+            35,
+            'https://api.placeholder.com/400/320',
+            hasBlenderLogo: true,
           ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  course['title']!,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  course['instructor']!,
-                  style: TextStyle(color: Colors.grey[400], fontSize: 12),
-                ),
-              ],
-            ),
+          _buildCourseCard(
+            'Figmarketing | Khóa học dành cho thiết kế',
+            'TELOS Academy, Lưu Tuấn',
+            '399.000 đ',
+            '',
+            5.0,
+            150,
+            'https://api.placeholder.com/400/320',
           ),
         ],
       ),
     );
   }
+
+  Widget _buildCourseCard(
+    String title,
+    String author,
+    String price,
+    String originalPrice,
+    double rating,
+    int reviews,
+    String imageUrl, {
+    bool hasBlenderLogo = false,
+  }) {
+    return Container(
+      width: 220,
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            height: 120,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Stack(
+              children: [
+                Image.network(
+                  imageUrl,
+                  width: double.infinity,
+                  height: double.infinity,
+                  fit: BoxFit.cover,
+                ),
+                if (hasBlenderLogo)
+                  Positioned(
+                    left: 10,
+                    top: 10,
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.blue[800],
+                      ),
+                      child: Center(
+                        child: Container(
+                          width: 25,
+                          height: 25,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white,
+                          ),
+                          child: Center(
+                            child: Container(
+                              width: 15,
+                              height: 15,
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.orange,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Text(author, style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Text(
+                rating.toString(),
+                style: const TextStyle(color: Colors.orange, fontSize: 12),
+              ),
+              const SizedBox(width: 4),
+              _buildStarRating(rating),
+              const SizedBox(width: 4),
+              Text(
+                '($reviews)',
+                style: TextStyle(color: Colors.grey[400], fontSize: 12),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Text(
+                price,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              if (originalPrice.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Text(
+                    originalPrice,
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      decoration: TextDecoration.lineThrough,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStarRating(double rating) {
+    return Row(
+      children: List.generate(5, (index) {
+        if (index < rating.floor()) {
+          return const Icon(Icons.star, color: Colors.orange, size: 14);
+        } else if (index == rating.floor() && rating % 1 > 0) {
+          return const Icon(Icons.star_half, color: Colors.orange, size: 14);
+        } else {
+          return const Icon(Icons.star_border, color: Colors.orange, size: 14);
+        }
+      }),
+    );
+  }
+
+  Widget _buildBottomNavigationBar() {
+    return BottomNavigationBar(
+      type: BottomNavigationBarType.fixed,
+      backgroundColor: Colors.black,
+      selectedItemColor: Colors.white,
+      unselectedItemColor: Colors.grey,
+      showSelectedLabels: true,
+      showUnselectedLabels: true,
+      currentIndex: _selectedIndex,
+      onTap: _onItemTapped,
+      items: const [
+        BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Nổi bật'),
+        BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Tìm kiếm'),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.play_circle_outline),
+          label: 'Học tập',
+        ),
+        // BottomNavigationBarItem(
+        //   icon: Icon(Icons.favorite_border),
+        //   label: 'Wishlist',
+        // ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.person_outline),
+          label: 'Tài khoản',
+        ),
+      ],
+    );
+  }
+}
+
+class CustomClipPath extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    path.moveTo(0, size.height * 0.3);
+    path.quadraticBezierTo(
+      size.width * 0.25,
+      size.height * 0.1,
+      size.width * 0.5,
+      size.height * 0.3,
+    );
+    path.quadraticBezierTo(
+      size.width * 0.75,
+      size.height * 0.5,
+      size.width,
+      size.height * 0.4,
+    );
+    path.lineTo(size.width, 0);
+    path.lineTo(0, 0);
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }
