@@ -1,6 +1,7 @@
-import 'package:android_basic/api/user_api.dart';
+import 'package:android_basic/screens/course_detail.dart';
 import 'package:flutter/material.dart';
 import '../helpers/auth_helper.dart';
+import 'package:android_basic/api/courses_api.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -11,13 +12,15 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-  String username = "Username ...";
+  String username = "Username";
+  List<dynamic> coursesData = [];
 
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
     getUserName();
+    getCoursesList();
   }
 
   Future<void> getUserName() async {
@@ -26,6 +29,18 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       username = name ?? 'Ẩn danh';
     });
+  }
+
+  Future<void> getCoursesList() async {
+    try {
+      final data = await CoursesApi.getCoursesList();
+
+      setState(() {
+        coursesData = data;
+      });
+    } catch (e) {
+      print('Lỗi khi lấy courses: $e');
+    }
   }
 
   void _onItemTapped(int index) {
@@ -99,30 +114,29 @@ class _HomeScreenState extends State<HomeScreen> {
                 borderRadius: BorderRadius.circular(100),
               ),
               child: ClipPath(
-                clipper: CustomClipPath(),
                 child: Image.network(
-                  'https://api.placeholder.com/400/320',
+                  'https://jrmaxpvxillhwsuvmagp.supabase.co/storage/v1/object/public/images/home_main_img/main_home.jpg',
                   fit: BoxFit.cover,
                 ),
               ),
             ),
           ),
-          Positioned(
-            left: 0,
-            right: 100,
-            bottom: 40,
-            child: Container(
-              width: 200,
-              child: const Text(
-                'Các kỹ năng mở ra cánh cửa thành công cho bạn',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 24,
-                ),
-              ),
-            ),
-          ),
+          // Positioned(
+          //   left: 0,
+          //   right: 100,
+          //   bottom: 40,
+          //   child: Container(
+          //     width: 200,
+          //     child: const Text(
+          //       'Các kỹ năng mở ra cánh cửa thành công cho bạn',
+          //       style: TextStyle(
+          //         color: Colors.white,
+          //         fontWeight: FontWeight.bold,
+          //         fontSize: 24,
+          //       ),
+          //     ),
+          //   ),
+          // ),
         ],
       ),
     );
@@ -156,36 +170,70 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Widget _buildCoursesList() {
+  //   return Container(
+  //     padding: const EdgeInsets.only(top: 16),
+  //     height: 300,
+  //     child: ListView.builder(
+  //       scrollDirection: Axis.horizontal,
+  //       padding: const EdgeInsets.symmetric(horizontal: 8),
+  //       itemCount: coursesData.length,
+  //       itemBuilder: (context, index) {
+  //         final course = coursesData[index];
+
+  //         return _buildCourseCard(
+  //           course['title'] ?? '',
+  //           course['user_name'] ?? 'Giảng viên chưa rõ',
+  //           _formatCurrency(course['discount_price']),
+  //           course['price'] != null ? _formatCurrency(course['price']) : '',
+  //           4.8, // fake rating
+  //           100, // fake student count
+  //           course['thumbnail_url'] ?? '',
+  //         );
+  //       },
+  //     ),
+  //   );
+  // }
+
+  // 1. Cập nhật _buildCoursesList() để thêm onTap
   Widget _buildCoursesList() {
     return Container(
       padding: const EdgeInsets.only(top: 16),
       height: 300,
-      child: ListView(
+      child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        children: [
-          _buildCourseCard(
-            'Tay Mơ Blender 3D',
-            'Nguyễn Vũ Hoàng Hiệp',
-            '199.000 đ',
-            '799.000 đ',
-            4.6,
-            35,
-            'https://api.placeholder.com/400/320',
-            hasBlenderLogo: true,
-          ),
-          _buildCourseCard(
-            'Figmarketing | Khóa học dành cho thiết kế',
-            'TELOS Academy, Lưu Tuấn',
-            '399.000 đ',
-            '',
-            5.0,
-            150,
-            'https://api.placeholder.com/400/320',
-          ),
-        ],
+        itemCount: coursesData.length,
+        itemBuilder: (context, index) {
+          final course = coursesData[index];
+
+          return GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CourseDetailPage(course: course),
+                ),
+              );
+            },
+            child: _buildCourseCard(
+              course['title'] ?? '',
+              course['user_name'] ?? 'Giảng viên chưa rõ',
+              _formatCurrency(course['discount_price']),
+              course['price'] != null ? _formatCurrency(course['price']) : '',
+              course['rating'],
+              course['student_count'],
+              course['thumbnail_url'] ?? '',
+            ),
+          );
+        },
       ),
     );
+  }
+
+  String _formatCurrency(num? value) {
+    if (value == null) return '';
+    return '${value.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')} đ';
   }
 
   Widget _buildCourseCard(

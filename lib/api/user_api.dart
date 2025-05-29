@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../config/server.dart';
@@ -35,6 +36,20 @@ class UserAPI {
       throw Exception('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại');
     } else {
       throw Exception('Lỗi tải dữ liệu: ${response.statusCode}');
+    }
+  }
+
+  static Future<void> saveProfileToServer(Map<String, dynamic> data) async {
+    final response = await http.post(
+      Uri.parse('https://your-backend.com/update_profile'),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode(data),
+    );
+
+    if (response.statusCode == 200) {
+      debugPrint("Cập nhật thành công");
+    } else {
+      debugPrint("Lỗi cập nhật: ${response.statusCode}");
     }
   }
 }
