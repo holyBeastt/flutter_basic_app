@@ -221,8 +221,9 @@ class _HomeScreenState extends State<HomeScreen> {
               course['user_name'] ?? 'Giảng viên chưa rõ',
               _formatCurrency(course['discount_price']),
               course['price'] != null ? _formatCurrency(course['price']) : '',
-              course['rating'],
-              course['student_count'],
+              (course['rating'] as num?)?.toDouble() ??
+                  0.0, // ✅ ép kiểu an toàn
+              course['student_count'] ?? 0,
               course['thumbnail_url'] ?? '',
             ),
           );

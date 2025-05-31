@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 
 class CourseDetailPage extends StatefulWidget {
   final Map<String, dynamic> course;
@@ -12,19 +14,208 @@ class CourseDetailPage extends StatefulWidget {
 class _CourseDetailPageState extends State<CourseDetailPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+
+  Player? _player;
+  VideoController? _videoController;
+
   bool _isEnrolled = false;
   bool _isFavorite = false;
+  bool _isVideoInitialized = false;
+  bool _showVideoPlayer = false;
+  bool _isBuffering = true;
+  bool _isVideoReady = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _initializeVideo();
+    // Không khởi tạo video ngay, chỉ khi user nhấn preview
+  }
+
+  Future<void> _initializeVideo() async {
+    String? videoUrl = widget.course['preview_video_url'];
+    print('Video URL from database: $videoUrl');
+
+    if (videoUrl != null && videoUrl.isNotEmpty) {
+      print('Initializing media_kit player...');
+
+      try {
+        // Dispose player cũ nếu có
+        await _player?.dispose();
+
+        // Tạo player mới với cấu hình tối ưu
+        _player = Player(
+          configuration: PlayerConfiguration(
+            // Giảm buffer để tránh skip frames
+            bufferSize: 8 * 1024 * 1024, // 8MB thay vì 32MB
+            // Cấu hình cho seeking tốt hơn
+            pitch: false,
+            logLevel: MPVLogLevel.warn,
+          ),
+        );
+
+        _videoController = VideoController(
+          _player!,
+          configuration: const VideoControllerConfiguration(
+            enableHardwareAcceleration: true,
+            androidAttachSurfaceAfterVideoParameters: false,
+          ),
+        );
+
+        // Reset states
+        setState(() {
+          _isVideoInitialized = false;
+          _isVideoReady = false;
+          _isBuffering = true;
+        });
+
+        // Lắng nghe khi video được load xong
+        // _player!.stream.duration.listen((duration) {
+        //   print('Video duration received: $duration');
+        //   if (duration != Duration.zero && mounted) {
+        //     setState(() {
+        //       _isVideoInitialized = true;
+        //     });
+        //   }
+        // });
+        _player!.stream.duration.listen((duration) async {
+          print('Video duration received: $duration');
+          if (duration != null && duration > Duration.zero && mounted) {
+            setState(() {
+              _isVideoInitialized = true;
+            });
+
+            if (!_isVideoReady) {
+              print('Seeking to start after duration is available...');
+              await _player!.seek(Duration.zero);
+            }
+          }
+        });
+
+        // Lắng nghe khi video sẵn sàng phát
+        _player!.stream.buffering.listen((isBuffering) {
+          print('Buffering state: $isBuffering');
+          if (mounted) {
+            setState(() {
+              _isBuffering = isBuffering;
+              if (!isBuffering && _isVideoInitialized) {
+                _isVideoReady = true;
+              }
+            });
+          }
+        });
+
+        // Lắng nghe position để debug
+        _player!.stream.position.listen((position) {
+          // print('Current position: $position');
+        });
+
+        // Lắng nghe lỗi
+        _player!.stream.error.listen((error) {
+          print('Player error: $error');
+          if (mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Video error: $error')));
+          }
+        });
+
+        print('Opening video: $videoUrl');
+
+        // Mở video KHÔNG tự động phát
+        await _player!.open(
+          Media(videoUrl),
+          play: false, // Quan trọng: không tự động phát
+        );
+
+        print('Video opened, seeking to start...');
+
+        // Đợi một chút rồi seek về đầu
+        await Future.delayed(Duration(milliseconds: 500));
+        await _player!.seek(Duration.zero);
+
+        print('Video setup completed');
+      } catch (error) {
+        print('Error initializing video: $error');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error loading video: $error')),
+          );
+        }
+      }
+    }
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _player?.dispose();
     super.dispose();
+  }
+
+  Future<void> _toggleVideoPlayback() async {
+    // Nếu chưa khởi tạo video, khởi tạo trước
+    if (_player == null) {
+      setState(() {
+        _showVideoPlayer = true;
+      });
+      await _initializeVideo();
+      return;
+    }
+
+    if (_player != null) {
+      setState(() {
+        _showVideoPlayer = true;
+      });
+
+      // Đợi video sẵn sàng
+      if (!_isVideoReady) {
+        print('Video not ready yet, waiting...');
+        return;
+      }
+
+      try {
+        if (_player!.state.playing) {
+          await _player!.pause();
+          print('Video paused');
+        } else {
+          // Luôn seek về đầu trước khi phát
+          await _player!.seek(Duration.zero);
+          await Future.delayed(Duration(milliseconds: 100));
+          await _player!.play();
+          print('Video playing from start');
+        }
+      } catch (error) {
+        print('Error toggling playback: $error');
+      }
+    }
+  }
+
+  // Hàm seek an toàn
+  Future<void> _seekVideo(Duration position) async {
+    if (_player != null && _isVideoReady) {
+      try {
+        final duration = _player!.state.duration;
+
+        // Đảm bảo position trong phạm vi hợp lệ
+        if (position < Duration.zero) {
+          position = Duration.zero;
+        } else if (position > duration) {
+          position = duration;
+        }
+
+        print('Seeking to: $position');
+        await _player!.seek(position);
+
+        // Đợi một chút để seek hoàn thành
+        await Future.delayed(Duration(milliseconds: 200));
+      } catch (error) {
+        print('Error seeking: $error');
+      }
+    } else {
+      print('Cannot seek: player not ready');
+    }
   }
 
   @override
@@ -37,6 +228,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (_showVideoPlayer) _buildVideoPlayer(),
                 _buildCourseHeader(),
                 _buildPriceAndActions(),
                 _buildTabBar(),
@@ -47,6 +239,191 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         ],
       ),
     );
+  }
+
+  Widget _buildVideoPlayer() {
+    return Container(
+      height: 250,
+      color: Colors.black,
+      child: Stack(
+        children: [
+          if (_videoController != null && _isVideoReady)
+            Video(
+              controller: _videoController!,
+              controls: NoVideoControls, // Tắt controls mặc định
+            ),
+
+          // Custom overlay controls
+          if (_isVideoReady) _buildVideoControls(),
+
+          // Loading overlay
+          if (!_isVideoReady)
+            Container(
+              color: Colors.black,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(color: Colors.white),
+                    SizedBox(height: 16),
+                    Text(
+                      _isBuffering ? 'Buffering...' : 'Loading video...',
+                      style: TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVideoControls() {
+    return Positioned.fill(
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.transparent,
+              Colors.transparent,
+              Colors.black.withOpacity(0.8),
+            ],
+            stops: [0.0, 0.7, 1.0],
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            // Progress bar
+            StreamBuilder<Duration>(
+              stream: _player!.stream.position,
+              builder: (context, snapshot) {
+                final position = snapshot.data ?? Duration.zero;
+                final duration = _player!.state.duration;
+
+                if (duration == Duration.zero) {
+                  return SizedBox.shrink();
+                }
+
+                return Container(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    children: [
+                      SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          trackHeight: 3,
+                          thumbShape: RoundSliderThumbShape(
+                            enabledThumbRadius: 6,
+                          ),
+                          overlayShape: RoundSliderOverlayShape(
+                            overlayRadius: 12,
+                          ),
+                        ),
+                        child: Slider(
+                          value: position.inMilliseconds.toDouble(),
+                          min: 0.0,
+                          max: duration.inMilliseconds.toDouble(),
+                          onChanged: (value) {
+                            final seekPosition = Duration(
+                              milliseconds: value.round(),
+                            );
+                            _seekVideo(seekPosition);
+                          },
+                          activeColor: Colors.red,
+                          inactiveColor: Colors.white.withOpacity(0.3),
+                        ),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              _formatDuration(position),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                            ),
+                            Text(
+                              _formatDuration(duration),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+
+            // Control buttons
+            Padding(
+              padding: EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      final currentPos = _player!.state.position;
+                      _seekVideo(currentPos - Duration(seconds: 10));
+                    },
+                    icon: Icon(Icons.replay_10, color: Colors.white, size: 28),
+                  ),
+                  StreamBuilder<bool>(
+                    stream: _player!.stream.playing,
+                    builder: (context, snapshot) {
+                      final isPlaying = snapshot.data ?? false;
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          onPressed: () async {
+                            if (isPlaying) {
+                              await _player!.pause();
+                            } else {
+                              await _player!.play();
+                            }
+                          },
+                          icon: Icon(
+                            isPlaying ? Icons.pause : Icons.play_arrow,
+                            color: Colors.white,
+                            size: 36,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      final currentPos = _player!.state.position;
+                      _seekVideo(currentPos + Duration(seconds: 10));
+                    },
+                    icon: Icon(Icons.forward_10, color: Colors.white, size: 28),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return '$minutes:$seconds';
   }
 
   Widget _buildAppBar() {
@@ -80,13 +457,23 @@ class _CourseDetailPageState extends State<CourseDetailPage>
             ),
             // Play button
             Center(
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
-                  shape: BoxShape.circle,
+              child: GestureDetector(
+                onTap: _isVideoInitialized ? _toggleVideoPlayback : null,
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.9),
+                    shape: BoxShape.circle,
+                  ),
+                  child:
+                      _isVideoInitialized
+                          ? Icon(
+                            Icons.play_arrow,
+                            size: 40,
+                            color: Colors.black,
+                          )
+                          : CircularProgressIndicator(color: Colors.black),
                 ),
-                child: Icon(Icons.play_arrow, size: 40, color: Colors.black),
               ),
             ),
           ],
@@ -111,6 +498,106 @@ class _CourseDetailPageState extends State<CourseDetailPage>
       ],
     );
   }
+  // late TabController _tabController;
+  // bool _isEnrolled = false;
+  // bool _isFavorite = false;
+
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   _tabController = TabController(length: 4, vsync: this);
+  // }
+
+  // @override
+  // void dispose() {
+  //   _tabController.dispose();
+  //   super.dispose();
+  // }
+
+  // @override
+  // Widget build(BuildContext context) {
+  //   return Scaffold(
+  //     body: CustomScrollView(
+  //       slivers: [
+  //         _buildAppBar(),
+  //         SliverToBoxAdapter(
+  //           child: Column(
+  //             crossAxisAlignment: CrossAxisAlignment.start,
+  //             children: [
+  //               _buildCourseHeader(),
+  //               _buildPriceAndActions(),
+  //               _buildTabBar(),
+  //               _buildTabContent(),
+  //             ],
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+  // Widget _buildAppBar() {
+  //   return SliverAppBar(
+  //     expandedHeight: 250,
+  //     pinned: true,
+  //     backgroundColor: Colors.black,
+  //     flexibleSpace: FlexibleSpaceBar(
+  //       background: Stack(
+  //         fit: StackFit.expand,
+  //         children: [
+  //           // Course thumbnail
+  //           widget.course['thumbnail_url'] != null
+  //               ? Image.network(
+  //                 widget.course['thumbnail_url'],
+  //                 fit: BoxFit.cover,
+  //                 errorBuilder:
+  //                     (context, error, stackTrace) =>
+  //                         Container(color: Colors.grey[300]),
+  //               )
+  //               : Container(color: Colors.grey[300]),
+  //           // Gradient overlay
+  //           Container(
+  //             decoration: BoxDecoration(
+  //               gradient: LinearGradient(
+  //                 begin: Alignment.topCenter,
+  //                 end: Alignment.bottomCenter,
+  //                 colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
+  //               ),
+  //             ),
+  //           ),
+  //           // Play button
+  //           Center(
+  //             child: Container(
+  //               padding: const EdgeInsets.all(20),
+  //               decoration: BoxDecoration(
+  //                 color: Colors.white.withOpacity(0.9),
+  //                 shape: BoxShape.circle,
+  //               ),
+  //               child: Icon(Icons.play_arrow, size: 40, color: Colors.black),
+  //             ),
+  //           ),
+  //         ],
+  //       ),
+  //     ),
+  //     actions: [
+  //       IconButton(
+  //         icon: Icon(
+  //           _isFavorite ? Icons.favorite : Icons.favorite_border,
+  //           color: _isFavorite ? Colors.red : Colors.white,
+  //         ),
+  //         onPressed: () {
+  //           setState(() {
+  //             _isFavorite = !_isFavorite;
+  //           });
+  //         },
+  //       ),
+  //       IconButton(
+  //         icon: Icon(Icons.share, color: Colors.white),
+  //         onPressed: () {},
+  //       ),
+  //     ],
+  //   );
+  // }
 
   Widget _buildCourseHeader() {
     return Padding(
