@@ -43,14 +43,15 @@ class _LoginScreenState extends State<LoginScreen> {
         final data = jsonDecode(response.body);
 
         final token = data['token'];
-        final user = data['user']?['username'] ?? 'Ẩn danh';
+        final user = data['user'];
+
+        // ?['username'] ?? 'Ẩn danh';
 
         // ✅ Lưu token sau khi đăng nhập
         await _storage.write(key: 'jwt_token', value: token);
 
         // Lưu id, họ tên user
-        await _storage.write(key: 'user', value: user);
-
+        await _storage.write(key: 'user', value: jsonEncode(user));
         // Chuyển hướng sang màn hình chính
         Navigator.pushReplacement(
           context,

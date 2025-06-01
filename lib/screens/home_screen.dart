@@ -1,4 +1,5 @@
 import 'package:android_basic/screens/course_detail.dart';
+import 'package:android_basic/screens/profile_screen.dart';
 import 'package:flutter/material.dart';
 import '../helpers/auth_helper.dart';
 import 'package:android_basic/api/courses_api.dart';
@@ -43,7 +44,16 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _onItemTapped(int index) {
+   void _onItemTapped(int index) {
+    if (index == 3) {
+      // Nếu bấm vào tab "Tài khoản" thì chuyển sang màn hình tài khoản
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const ProfileScreen()),
+      );
+      // Không đổi _selectedIndex để không làm đổi giao diện Home
+      return;
+    }
     setState(() {
       _selectedIndex = index;
     });
@@ -400,6 +410,7 @@ class _HomeScreenState extends State<HomeScreen> {
         BottomNavigationBarItem(
           icon: Icon(Icons.person_outline),
           label: 'Tài khoản',
+          
         ),
       ],
     );
