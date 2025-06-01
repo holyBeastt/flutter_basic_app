@@ -44,7 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-   void _onItemTapped(int index) {
+  void _onItemTapped(int index) {
     if (index == 3) {
       // Nếu bấm vào tab "Tài khoản" thì chuyển sang màn hình tài khoản
       Navigator.push(
@@ -97,8 +97,9 @@ class _HomeScreenState extends State<HomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildFeaturePromo(),
-          _buildSkillsHeadline(),
-          _buildCourseRecommendation(),
+          // _buildSkillsHeadline(),
+          // _buildCourseRecommendation(),
+          _buildIntroSection(),
           _buildCoursesList(),
         ],
       ),
@@ -113,97 +114,144 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: const EdgeInsets.all(16),
       child: Stack(
         children: [
-          Positioned(
-            right: 0,
-            top: 20,
-            child: Container(
-              width: 200,
-              height: 180,
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(100),
+          // Ảnh full chiều ngang
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                'https://jrmaxpvxillhwsuvmagp.supabase.co/storage/v1/object/public/images/home_main_img/main_home.jpg',
+                fit: BoxFit.cover,
               ),
-              child: ClipPath(
-                child: Image.network(
-                  'https://jrmaxpvxillhwsuvmagp.supabase.co/storage/v1/object/public/images/home_main_img/main_home.jpg',
-                  fit: BoxFit.cover,
+            ),
+          ),
+          // Nội dung đè lên ảnh (tuỳ chọn)
+          Align(
+            alignment: Alignment.bottomLeft,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              width: 250,
+              child: const Text(
+                '',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  shadows: [
+                    Shadow(
+                      offset: Offset(1, 1),
+                      blurRadius: 4,
+                      color: Colors.black45,
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-          // Positioned(
-          //   left: 0,
-          //   right: 100,
-          //   bottom: 40,
-          //   child: Container(
-          //     width: 200,
-          //     child: const Text(
-          //       'Các kỹ năng mở ra cánh cửa thành công cho bạn',
-          //       style: TextStyle(
-          //         color: Colors.white,
-          //         fontWeight: FontWeight.bold,
-          //         fontSize: 24,
-          //       ),
-          //     ),
-          //   ),
-          // ),
         ],
       ),
     );
   }
 
-  Widget _buildSkillsHeadline() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: const Text(
-        'Đây là đợt ưu đãi hấp dẫn nhất mùa này của chúng tôi. Mở ra các cơ hội nghề nghiệp mới với các khóa học có giá từ 199.000 đ. Ưu đãi sẽ kết',
-        style: TextStyle(color: Colors.white, fontSize: 14),
-      ),
-    );
-  }
-
-  Widget _buildCourseRecommendation() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: RichText(
-        text: const TextSpan(
-          style: TextStyle(color: Colors.white, fontSize: 14),
-          children: [
-            TextSpan(text: 'Vì bạn đã xem "'),
-            TextSpan(
-              text: 'Canva 101 - Làm chủ kỹ năng thiết kế Canva cho ...',
-              style: TextStyle(color: Color(0xFF9370DB)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Widget _buildCoursesList() {
+  // Widget _buildFeaturePromo() {
   //   return Container(
-  //     padding: const EdgeInsets.only(top: 16),
-  //     height: 300,
-  //     child: ListView.builder(
-  //       scrollDirection: Axis.horizontal,
-  //       padding: const EdgeInsets.symmetric(horizontal: 8),
-  //       itemCount: coursesData.length,
-  //       itemBuilder: (context, index) {
-  //         final course = coursesData[index];
-
-  //         return _buildCourseCard(
-  //           course['title'] ?? '',
-  //           course['user_name'] ?? 'Giảng viên chưa rõ',
-  //           _formatCurrency(course['discount_price']),
-  //           course['price'] != null ? _formatCurrency(course['price']) : '',
-  //           4.8, // fake rating
-  //           100, // fake student count
-  //           course['thumbnail_url'] ?? '',
-  //         );
-  //       },
+  //     height: 240,
+  //     width: double.infinity,
+  //     color: const Color(0xFF8A56FF),
+  //     padding: const EdgeInsets.all(16),
+  //     child: Stack(
+  //       children: [
+  //         Positioned(
+  //           right: 0,
+  //           top: 20,
+  //           child: Container(
+  //             width: 200,
+  //             height: 180,
+  //             decoration: BoxDecoration(
+  //               color: Colors.black.withOpacity(0.3),
+  //               borderRadius: BorderRadius.circular(100),
+  //             ),
+  //             child: ClipPath(
+  //               child: Image.network(
+  //                 'https://jrmaxpvxillhwsuvmagp.supabase.co/storage/v1/object/public/images/home_main_img/main_home.jpg',
+  //                 fit: BoxFit.cover,
+  //               ),
+  //             ),
+  //           ),
+  //         ),
+  //         // Positioned(
+  //         //   left: 0,
+  //         //   right: 100,
+  //         //   bottom: 40,
+  //         //   child: Container(
+  //         //     width: 200,
+  //         //     child: const Text(
+  //         //       'Các kỹ năng mở ra cánh cửa thành công cho bạn',
+  //         //       style: TextStyle(
+  //         //         color: Colors.white,
+  //         //         fontWeight: FontWeight.bold,
+  //         //         fontSize: 24,
+  //         //       ),
+  //         //     ),
+  //         //   ),
+  //         // ),
+  //       ],
   //     ),
   //   );
   // }
+
+  // Widget _buildSkillsHeadline() {
+  //   return Container(
+  //     padding: const EdgeInsets.all(16),
+  //     child: const Text(
+  //       'Đây là đợt ưu đãi hấp dẫn nhất mùa này của chúng tôi. Mở ra các cơ hội nghề nghiệp mới với các khóa học có giá từ 199.000 đ. Ưu đãi sẽ kết',
+  //       style: TextStyle(color: Colors.white, fontSize: 14),
+  //     ),
+  //   );
+  // }
+
+  // Widget _buildCourseRecommendation() {
+  //   return Container(
+  //     padding: const EdgeInsets.symmetric(horizontal: 16),
+  //     child: RichText(
+  //       text: const TextSpan(
+  //         style: TextStyle(color: Colors.white, fontSize: 14),
+  //         children: [
+  //           TextSpan(text: 'Vì bạn đã xem "'),
+  //           TextSpan(
+  //             text: 'Canva 101 - Làm chủ kỹ năng thiết kế Canva cho ...',
+  //             style: TextStyle(color: Color(0xFF9370DB)),
+  //           ),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
+
+  Widget _buildIntroSection() {
+    return Container(
+      width: double.infinity,
+      color: Colors.black,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: const [
+          Text(
+            'Khám phá kỹ năng mới mỗi ngày',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 12),
+          Text(
+            'Chinh phục các khóa học hot nhất hiện nay và nâng tầm sự nghiệp của bạn.',
+            style: TextStyle(color: Colors.white70, fontSize: 16, height: 1.4),
+          ),
+        ],
+      ),
+    );
+  }
 
   // 1. Cập nhật _buildCoursesList() để thêm onTap
   Widget _buildCoursesList() {
@@ -410,7 +458,6 @@ class _HomeScreenState extends State<HomeScreen> {
         BottomNavigationBarItem(
           icon: Icon(Icons.person_outline),
           label: 'Tài khoản',
-          
         ),
       ],
     );
