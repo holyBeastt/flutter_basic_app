@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:intl/intl.dart'; // import để dùng NumberFormat
+import 'dart:convert';
 
 class CourseDetailPage extends StatefulWidget {
   final Map<String, dynamic> course;
@@ -24,13 +27,13 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   bool _showVideoPlayer = false;
   bool _isBuffering = true;
   bool _isVideoReady = false;
+  bool _isFullScreen = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     _initializeVideo();
-    // Không khởi tạo video ngay, chỉ khi user nhấn preview
   }
 
   Future<void> _initializeVideo() async {
@@ -41,15 +44,11 @@ class _CourseDetailPageState extends State<CourseDetailPage>
       print('Initializing media_kit player...');
 
       try {
-        // Dispose player cũ nếu có
         await _player?.dispose();
 
-        // Tạo player mới với cấu hình tối ưu
         _player = Player(
           configuration: PlayerConfiguration(
-            // Giảm buffer để tránh skip frames
-            bufferSize: 8 * 1024 * 1024, // 8MB thay vì 32MB
-            // Cấu hình cho seeking tốt hơn
+            bufferSize: 8 * 1024 * 1024,
             pitch: false,
             logLevel: MPVLogLevel.warn,
           ),
@@ -63,22 +62,12 @@ class _CourseDetailPageState extends State<CourseDetailPage>
           ),
         );
 
-        // Reset states
         setState(() {
           _isVideoInitialized = false;
           _isVideoReady = false;
           _isBuffering = true;
         });
 
-        // Lắng nghe khi video được load xong
-        // _player!.stream.duration.listen((duration) {
-        //   print('Video duration received: $duration');
-        //   if (duration != Duration.zero && mounted) {
-        //     setState(() {
-        //       _isVideoInitialized = true;
-        //     });
-        //   }
-        // });
         _player!.stream.duration.listen((duration) async {
           print('Video duration received: $duration');
           if (duration != null && duration > Duration.zero && mounted) {
@@ -93,7 +82,6 @@ class _CourseDetailPageState extends State<CourseDetailPage>
           }
         });
 
-        // Lắng nghe khi video sẵn sàng phát
         _player!.stream.buffering.listen((isBuffering) {
           print('Buffering state: $isBuffering');
           if (mounted) {
@@ -106,12 +94,6 @@ class _CourseDetailPageState extends State<CourseDetailPage>
           }
         });
 
-        // Lắng nghe position để debug
-        _player!.stream.position.listen((position) {
-          // print('Current position: $position');
-        });
-
-        // Lắng nghe lỗi
         _player!.stream.error.listen((error) {
           print('Player error: $error');
           if (mounted) {
@@ -122,16 +104,9 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         });
 
         print('Opening video: $videoUrl');
-
-        // Mở video KHÔNG tự động phát
-        await _player!.open(
-          Media(videoUrl),
-          play: false, // Quan trọng: không tự động phát
-        );
+        await _player!.open(Media(videoUrl), play: false);
 
         print('Video opened, seeking to start...');
-
-        // Đợi một chút rồi seek về đầu
         await Future.delayed(Duration(milliseconds: 500));
         await _player!.seek(Duration.zero);
 
@@ -147,58 +122,69 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     }
   }
 
+  // Hàm chuyển sang fullscreen và phát video
+  Future<void> _playVideoFullscreen() async {
+    if (!_isVideoReady) {
+      print('Video not ready yet');
+      return;
+    }
+
+    // Chuyển sang fullscreen
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+
+    setState(() {
+      _isFullScreen = true;
+      _showVideoPlayer = true;
+    });
+
+    // Phát video từ đầu
+    try {
+      await _player!.seek(Duration.zero);
+      await Future.delayed(Duration(milliseconds: 100));
+      await _player!.play();
+      print('Video playing in fullscreen');
+    } catch (error) {
+      print('Error playing video: $error');
+    }
+  }
+
+  // Hàm thoát fullscreen và dừng video
+  Future<void> _exitFullscreen() async {
+    // Dừng video
+    if (_player != null) {
+      await _player!.pause();
+      await _player!.seek(Duration.zero);
+    }
+
+    // Thoát fullscreen
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+
+    setState(() {
+      _isFullScreen = false;
+      _showVideoPlayer = false;
+    });
+  }
+
   @override
   void dispose() {
     _tabController.dispose();
     _player?.dispose();
+    // Reset system UI khi dispose
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     super.dispose();
   }
 
-  Future<void> _toggleVideoPlayback() async {
-    // Nếu chưa khởi tạo video, khởi tạo trước
-    if (_player == null) {
-      setState(() {
-        _showVideoPlayer = true;
-      });
-      await _initializeVideo();
-      return;
-    }
-
-    if (_player != null) {
-      setState(() {
-        _showVideoPlayer = true;
-      });
-
-      // Đợi video sẵn sàng
-      if (!_isVideoReady) {
-        print('Video not ready yet, waiting...');
-        return;
-      }
-
-      try {
-        if (_player!.state.playing) {
-          await _player!.pause();
-          print('Video paused');
-        } else {
-          // Luôn seek về đầu trước khi phát
-          await _player!.seek(Duration.zero);
-          await Future.delayed(Duration(milliseconds: 100));
-          await _player!.play();
-          print('Video playing from start');
-        }
-      } catch (error) {
-        print('Error toggling playback: $error');
-      }
-    }
-  }
-
-  // Hàm seek an toàn
   Future<void> _seekVideo(Duration position) async {
     if (_player != null && _isVideoReady) {
       try {
         final duration = _player!.state.duration;
 
-        // Đảm bảo position trong phạm vi hợp lệ
         if (position < Duration.zero) {
           position = Duration.zero;
         } else if (position > duration) {
@@ -207,19 +193,24 @@ class _CourseDetailPageState extends State<CourseDetailPage>
 
         print('Seeking to: $position');
         await _player!.seek(position);
-
-        // Đợi một chút để seek hoàn thành
         await Future.delayed(Duration(milliseconds: 200));
       } catch (error) {
         print('Error seeking: $error');
       }
-    } else {
-      print('Cannot seek: player not ready');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Nếu đang fullscreen, chỉ hiển thị video player
+    if (_isFullScreen) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: _buildFullScreenVideoPlayer(),
+      );
+    }
+
+    // Giao diện bình thường
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -228,7 +219,6 @@ class _CourseDetailPageState extends State<CourseDetailPage>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (_showVideoPlayer) _buildVideoPlayer(),
                 _buildCourseHeader(),
                 _buildPriceAndActions(),
                 _buildTabBar(),
@@ -241,20 +231,25 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     );
   }
 
-  Widget _buildVideoPlayer() {
+  Widget _buildFullScreenVideoPlayer() {
     return Container(
-      height: 250,
+      width: double.infinity,
+      height: double.infinity,
       color: Colors.black,
       child: Stack(
         children: [
+          // Video player
           if (_videoController != null && _isVideoReady)
-            Video(
-              controller: _videoController!,
-              controls: NoVideoControls, // Tắt controls mặc định
+            Positioned.fill(
+              child: Video(
+                controller: _videoController!,
+                controls: NoVideoControls,
+                fit: BoxFit.contain,
+              ),
             ),
 
-          // Custom overlay controls
-          if (_isVideoReady) _buildVideoControls(),
+          // Custom controls overlay
+          if (_isVideoReady) _buildFullScreenVideoControls(),
 
           // Loading overlay
           if (!_isVideoReady)
@@ -264,11 +259,18 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    CircularProgressIndicator(color: Colors.white),
-                    SizedBox(height: 16),
+                    CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 3,
+                    ),
+                    SizedBox(height: 20),
                     Text(
-                      _isBuffering ? 'Buffering...' : 'Loading video...',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
+                      _isBuffering ? 'Đang tải...' : 'Khởi tạo video...',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ),
@@ -279,7 +281,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     );
   }
 
-  Widget _buildVideoControls() {
+  Widget _buildFullScreenVideoControls() {
     return Positioned.fill(
       child: Container(
         decoration: BoxDecoration(
@@ -287,72 +289,210 @@ class _CourseDetailPageState extends State<CourseDetailPage>
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Colors.transparent,
+              Colors.black.withOpacity(0.5),
               Colors.transparent,
               Colors.black.withOpacity(0.8),
             ],
-            stops: [0.0, 0.7, 1.0],
+            stops: [0.0, 0.5, 1.0],
           ),
         ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            // Progress bar
-            StreamBuilder<Duration>(
-              stream: _player!.stream.position,
-              builder: (context, snapshot) {
-                final position = snapshot.data ?? Duration.zero;
-                final duration = _player!.state.duration;
-
-                if (duration == Duration.zero) {
-                  return SizedBox.shrink();
-                }
-
-                return Container(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    children: [
-                      SliderTheme(
-                        data: SliderTheme.of(context).copyWith(
-                          trackHeight: 3,
-                          thumbShape: RoundSliderThumbShape(
-                            enabledThumbRadius: 6,
+            // Top bar với nút thoát (X)
+            Padding(
+              padding: EdgeInsets.only(top: 40, left: 20, right: 20),
+              child: Row(
+                children: [
+                  // Thông tin khóa học
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.course['title'] ?? 'Khóa học',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
-                          overlayShape: RoundSliderOverlayShape(
-                            overlayRadius: 12,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (widget.course['instructor'] != null)
+                          Text(
+                            'Giảng viên: ${widget.course['instructor']}',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        child: Slider(
-                          value: position.inMilliseconds.toDouble(),
-                          min: 0.0,
-                          max: duration.inMilliseconds.toDouble(),
-                          onChanged: (value) {
-                            final seekPosition = Duration(
-                              milliseconds: value.round(),
-                            );
-                            _seekVideo(seekPosition);
-                          },
-                          activeColor: Colors.red,
-                          inactiveColor: Colors.white.withOpacity(0.3),
-                        ),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              _formatDuration(position),
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
+                      ],
+                    ),
+                  ),
+                  // Nút thoát fullscreen (X)
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      onPressed: _exitFullscreen,
+                      icon: Icon(Icons.close, color: Colors.white, size: 28),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            Spacer(),
+
+            // Bottom controls
+            Column(
+              children: [
+                // Progress bar
+                StreamBuilder<Duration>(
+                  stream: _player!.stream.position,
+                  builder: (context, snapshot) {
+                    final position = snapshot.data ?? Duration.zero;
+                    final duration = _player!.state.duration;
+
+                    if (duration == Duration.zero) {
+                      return SizedBox.shrink();
+                    }
+
+                    return Container(
+                      padding: EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        children: [
+                          SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              trackHeight: 4,
+                              thumbShape: RoundSliderThumbShape(
+                                enabledThumbRadius: 8,
+                              ),
+                              overlayShape: RoundSliderOverlayShape(
+                                overlayRadius: 16,
                               ),
                             ),
-                            Text(
-                              _formatDuration(duration),
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
+                            child: Slider(
+                              value: position.inMilliseconds.toDouble(),
+                              min: 0.0,
+                              max: duration.inMilliseconds.toDouble(),
+                              onChanged: (value) {
+                                final seekPosition = Duration(
+                                  milliseconds: value.round(),
+                                );
+                                _seekVideo(seekPosition);
+                              },
+                              activeColor: Colors.red,
+                              inactiveColor: Colors.white.withOpacity(0.3),
+                            ),
+                          ),
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  _formatDuration(position),
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                Text(
+                                  _formatDuration(duration),
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+
+                // Control buttons
+                Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      IconButton(
+                        onPressed: () {
+                          final currentPos = _player!.state.position;
+                          _seekVideo(currentPos - Duration(seconds: 15));
+                        },
+                        icon: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Icon(Icons.replay, color: Colors.white, size: 32),
+                            Positioned(
+                              bottom: 2,
+                              child: Text(
+                                '15',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      StreamBuilder<bool>(
+                        stream: _player!.stream.playing,
+                        builder: (context, snapshot) {
+                          final isPlaying = snapshot.data ?? false;
+                          return Container(
+                            width: 70,
+                            height: 70,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: IconButton(
+                              onPressed: () async {
+                                if (isPlaying) {
+                                  await _player!.pause();
+                                } else {
+                                  await _player!.play();
+                                }
+                              },
+                              icon: Icon(
+                                isPlaying ? Icons.pause : Icons.play_arrow,
+                                color: Colors.black,
+                                size: 36,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      IconButton(
+                        onPressed: () {
+                          final currentPos = _player!.state.position;
+                          _seekVideo(currentPos + Duration(seconds: 15));
+                        },
+                        icon: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Icon(Icons.forward, color: Colors.white, size: 32),
+                            Positioned(
+                              bottom: 2,
+                              child: Text(
+                                '15',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           ],
@@ -360,58 +500,8 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                       ),
                     ],
                   ),
-                );
-              },
-            ),
-
-            // Control buttons
-            Padding(
-              padding: EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  IconButton(
-                    onPressed: () {
-                      final currentPos = _player!.state.position;
-                      _seekVideo(currentPos - Duration(seconds: 10));
-                    },
-                    icon: Icon(Icons.replay_10, color: Colors.white, size: 28),
-                  ),
-                  StreamBuilder<bool>(
-                    stream: _player!.stream.playing,
-                    builder: (context, snapshot) {
-                      final isPlaying = snapshot.data ?? false;
-                      return Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: IconButton(
-                          onPressed: () async {
-                            if (isPlaying) {
-                              await _player!.pause();
-                            } else {
-                              await _player!.play();
-                            }
-                          },
-                          icon: Icon(
-                            isPlaying ? Icons.pause : Icons.play_arrow,
-                            color: Colors.white,
-                            size: 36,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  IconButton(
-                    onPressed: () {
-                      final currentPos = _player!.state.position;
-                      _seekVideo(currentPos + Duration(seconds: 10));
-                    },
-                    icon: Icon(Icons.forward_10, color: Colors.white, size: 28),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ],
         ),
@@ -435,7 +525,6 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         background: Stack(
           fit: StackFit.expand,
           children: [
-            // Course thumbnail
             widget.course['thumbnail_url'] != null
                 ? Image.network(
                   widget.course['thumbnail_url'],
@@ -445,7 +534,6 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                           Container(color: Colors.grey[300]),
                 )
                 : Container(color: Colors.grey[300]),
-            // Gradient overlay
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -455,10 +543,9 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                 ),
               ),
             ),
-            // Play button
             Center(
               child: GestureDetector(
-                onTap: _isVideoInitialized ? _toggleVideoPlayback : null,
+                onTap: _isVideoInitialized ? _playVideoFullscreen : null,
                 child: Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
@@ -498,138 +585,127 @@ class _CourseDetailPageState extends State<CourseDetailPage>
       ],
     );
   }
-  // late TabController _tabController;
-  // bool _isEnrolled = false;
-  // bool _isFavorite = false;
 
-  // @override
-  // void initState() {
-  //   super.initState();
-  //   _tabController = TabController(length: 4, vsync: this);
-  // }
-
-  // @override
-  // void dispose() {
-  //   _tabController.dispose();
-  //   super.dispose();
-  // }
-
-  // @override
-  // Widget build(BuildContext context) {
-  //   return Scaffold(
-  //     body: CustomScrollView(
-  //       slivers: [
-  //         _buildAppBar(),
-  //         SliverToBoxAdapter(
-  //           child: Column(
-  //             crossAxisAlignment: CrossAxisAlignment.start,
-  //             children: [
-  //               _buildCourseHeader(),
-  //               _buildPriceAndActions(),
-  //               _buildTabBar(),
-  //               _buildTabContent(),
-  //             ],
-  //           ),
+  // Widget _buildCourseHeader() {
+  //   return Padding(
+  //     padding: const EdgeInsets.all(16),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         Text(
+  //           widget.course['title'] ?? 'Tên khóa học',
+  //           style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+  //         ),
+  //         const SizedBox(height: 8),
+  //         Text(
+  //           widget.course['subtitle'] ?? 'Tên khóa học',
+  //           style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+  //         ),
+  //         const SizedBox(height: 12),
+  //         Row(
+  //           children: [
+  //             Icon(Icons.star, color: Colors.amber, size: 20),
+  //             const SizedBox(width: 4),
+  //             Text('4.8', style: TextStyle(fontWeight: FontWeight.bold)),
+  //             const SizedBox(width: 8),
+  //             Text(
+  //               '(2,847 đánh giá)',
+  //               style: TextStyle(color: Colors.grey[600]),
+  //             ),
+  //             const SizedBox(width: 16),
+  //             Icon(Icons.people, color: Colors.grey[600], size: 20),
+  //             const SizedBox(width: 4),
+  //             Text(
+  //               '15,234 học viên',
+  //               style: TextStyle(color: Colors.grey[600]),
+  //             ),
+  //           ],
+  //         ),
+  //         const SizedBox(height: 12),
+  //         Row(
+  //           children: [
+  //             CircleAvatar(
+  //               radius: 16,
+  //               backgroundColor: Colors.grey[300],
+  //               child: Icon(Icons.person, size: 20),
+  //             ),
+  //             const SizedBox(width: 8),
+  //             Text(
+  //               'Tạo bởi ${widget.course['user_name'] ?? 'Giảng viên'}',
+  //               style: TextStyle(
+  //                 color: Colors.blue[600],
+  //                 fontWeight: FontWeight.w500,
+  //               ),
+  //             ),
+  //           ],
+  //         ),
+  //         const SizedBox(height: 8),
+  //         Row(
+  //           children: [
+  //             Icon(Icons.update, size: 16, color: Colors.grey[600]),
+  //             const SizedBox(width: 4),
+  //             Text(
+  //               'Cập nhật lần cuối 3/2024',
+  //               style: TextStyle(color: Colors.grey[600]),
+  //             ),
+  //             const SizedBox(width: 16),
+  //             Icon(Icons.language, size: 16, color: Colors.grey[600]),
+  //             const SizedBox(width: 4),
+  //             Text('Tiếng Việt', style: TextStyle(color: Colors.grey[600])),
+  //           ],
   //         ),
   //       ],
   //     ),
   //   );
   // }
 
-  // Widget _buildAppBar() {
-  //   return SliverAppBar(
-  //     expandedHeight: 250,
-  //     pinned: true,
-  //     backgroundColor: Colors.black,
-  //     flexibleSpace: FlexibleSpaceBar(
-  //       background: Stack(
-  //         fit: StackFit.expand,
-  //         children: [
-  //           // Course thumbnail
-  //           widget.course['thumbnail_url'] != null
-  //               ? Image.network(
-  //                 widget.course['thumbnail_url'],
-  //                 fit: BoxFit.cover,
-  //                 errorBuilder:
-  //                     (context, error, stackTrace) =>
-  //                         Container(color: Colors.grey[300]),
-  //               )
-  //               : Container(color: Colors.grey[300]),
-  //           // Gradient overlay
-  //           Container(
-  //             decoration: BoxDecoration(
-  //               gradient: LinearGradient(
-  //                 begin: Alignment.topCenter,
-  //                 end: Alignment.bottomCenter,
-  //                 colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
-  //               ),
-  //             ),
-  //           ),
-  //           // Play button
-  //           Center(
-  //             child: Container(
-  //               padding: const EdgeInsets.all(20),
-  //               decoration: BoxDecoration(
-  //                 color: Colors.white.withOpacity(0.9),
-  //                 shape: BoxShape.circle,
-  //               ),
-  //               child: Icon(Icons.play_arrow, size: 40, color: Colors.black),
-  //             ),
-  //           ),
-  //         ],
-  //       ),
-  //     ),
-  //     actions: [
-  //       IconButton(
-  //         icon: Icon(
-  //           _isFavorite ? Icons.favorite : Icons.favorite_border,
-  //           color: _isFavorite ? Colors.red : Colors.white,
-  //         ),
-  //         onPressed: () {
-  //           setState(() {
-  //             _isFavorite = !_isFavorite;
-  //           });
-  //         },
-  //       ),
-  //       IconButton(
-  //         icon: Icon(Icons.share, color: Colors.white),
-  //         onPressed: () {},
-  //       ),
-  //     ],
-  //   );
-  // }
+  String _formatNumber(int number) {
+    return NumberFormat.decimalPattern('vi').format(number);
+  }
 
   Widget _buildCourseHeader() {
+    final title = widget.course['title'] ?? 'Tên khóa học';
+    final subtitle = widget.course['subtitle'] ?? '';
+    final rating = (widget.course['rating'] ?? 0.0).toDouble();
+    final reviewCount = widget.course['review_count'] ?? 0;
+    final studentCount = widget.course['student_count'] ?? 0;
+    final userName = widget.course['user_name'] ?? 'Giảng viên';
+    final lastUpdated =
+        widget.course['last_updated'] ?? '3/2024'; // Có thể là date string
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            widget.course['title'] ?? 'Tên khóa học',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            title,
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
-            'Khóa học lập trình từ cơ bản đến nâng cao dành cho người mới bắt đầu',
+            subtitle,
             style: TextStyle(fontSize: 16, color: Colors.grey[600]),
           ),
           const SizedBox(height: 12),
           Row(
             children: [
-              Icon(Icons.star, color: Colors.amber, size: 20),
+              const Icon(Icons.star, color: Colors.amber, size: 20),
               const SizedBox(width: 4),
-              Text('4.8', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                rating.toStringAsFixed(1),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
               const SizedBox(width: 8),
               Text(
-                '(2,847 đánh giá)',
+                '(${_formatNumber(reviewCount)} đánh giá)',
                 style: TextStyle(color: Colors.grey[600]),
               ),
               const SizedBox(width: 16),
               Icon(Icons.people, color: Colors.grey[600], size: 20),
               const SizedBox(width: 4),
               Text(
-                '15,234 học viên',
+                '${_formatNumber(studentCount)} học viên',
                 style: TextStyle(color: Colors.grey[600]),
               ),
             ],
@@ -640,11 +716,11 @@ class _CourseDetailPageState extends State<CourseDetailPage>
               CircleAvatar(
                 radius: 16,
                 backgroundColor: Colors.grey[300],
-                child: Icon(Icons.person, size: 20),
+                child: const Icon(Icons.person, size: 20),
               ),
               const SizedBox(width: 8),
               Text(
-                'Tạo bởi ${widget.course['user_name'] ?? 'Giảng viên'}',
+                'Tạo bởi $userName',
                 style: TextStyle(
                   color: Colors.blue[600],
                   fontWeight: FontWeight.w500,
@@ -658,7 +734,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
               Icon(Icons.update, size: 16, color: Colors.grey[600]),
               const SizedBox(width: 4),
               Text(
-                'Cập nhật lần cuối 3/2024',
+                'Cập nhật lần cuối $lastUpdated',
                 style: TextStyle(color: Colors.grey[600]),
               ),
               const SizedBox(width: 16),
@@ -709,13 +785,15 @@ class _CourseDetailPageState extends State<CourseDetailPage>
             ],
           ),
           const SizedBox(height: 4),
-          Text(
-            '🔥 Giảm giá 85%',
-            style: TextStyle(
-              color: Colors.red[600],
-              fontWeight: FontWeight.w500,
+          if (widget.course['discount_price'] != null &&
+              widget.course['price'] != null)
+            Text(
+              '🔥 Giảm giá ${_calculateDiscountPercent(widget.course['price'], widget.course['discount_price'])}%',
+              style: TextStyle(
+                color: Colors.red[600],
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -763,6 +841,20 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         ],
       ),
     );
+  }
+
+  int _calculateDiscountPercent(dynamic original, dynamic discounted) {
+    try {
+      final double originalPrice = double.parse(original.toString());
+      final double discountedPrice = double.parse(discounted.toString());
+
+      if (originalPrice <= 0 || discountedPrice >= originalPrice) return 0;
+
+      final percent = ((originalPrice - discountedPrice) / originalPrice) * 100;
+      return percent.round(); // làm tròn %
+    } catch (e) {
+      return 0;
+    }
   }
 
   Widget _buildTabBar() {
@@ -814,6 +906,80 @@ class _CourseDetailPageState extends State<CourseDetailPage>
           _buildRequirements(),
         ],
       ),
+    );
+  }
+
+  String _decodeEscaped(String input) {
+    return const JsonDecoder().convert('"$input"');
+  }
+
+  Widget _buildLearningOutcomes() {
+    final raw = widget.course['what_you_learn']?.toString() ?? '';
+    final decoded = _decodeEscaped(raw);
+    final List<String> outcomes =
+        decoded.split('\n').where((e) => e.trim().isNotEmpty).toList();
+
+    if (outcomes.isEmpty) {
+      return Text('Không có dữ liệu.');
+    }
+
+    return Column(
+      children:
+          outcomes
+              .map(
+                (outcome) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.check, color: Colors.green, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(outcome)),
+                    ],
+                  ),
+                ),
+              )
+              .toList(),
+    );
+  }
+
+  Widget _buildCourseDescription() {
+    final description =
+        widget.course['description']?.toString() ?? 'Chưa có mô tả khóa học.';
+
+    return Text(
+      description,
+      style: TextStyle(fontSize: 16, height: 1.5, color: Colors.grey[700]),
+    );
+  }
+
+  Widget _buildRequirements() {
+    final raw = widget.course['requirements']?.toString() ?? '';
+    final decoded = _decodeEscaped(raw);
+    final List<String> requirements =
+        decoded.split('\n').where((e) => e.trim().isNotEmpty).toList();
+
+    if (requirements.isEmpty) {
+      return Text('Không có yêu cầu nào.');
+    }
+
+    return Column(
+      children:
+          requirements
+              .map(
+                (req) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.circle, size: 6, color: Colors.grey[600]),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(req)),
+                    ],
+                  ),
+                ),
+              )
+              .toList(),
     );
   }
 
@@ -886,69 +1052,6 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         title,
         style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
       ),
-    );
-  }
-
-  Widget _buildLearningOutcomes() {
-    final outcomes = [
-      'Nắm vững các khái niệm cơ bản về lập trình',
-      'Xây dựng ứng dụng hoàn chỉnh từ đầu',
-      'Hiểu và áp dụng các design pattern',
-      'Tối ưu hóa hiệu suất ứng dụng',
-      'Deploy ứng dụng lên production',
-    ];
-
-    return Column(
-      children:
-          outcomes
-              .map(
-                (outcome) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.check, color: Colors.green, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(outcome)),
-                    ],
-                  ),
-                ),
-              )
-              .toList(),
-    );
-  }
-
-  Widget _buildCourseDescription() {
-    return Text(
-      'Khóa học này được thiết kế dành cho những người mới bắt đầu với lập trình. Bạn sẽ học từ những khái niệm cơ bản nhất cho đến các kỹ thuật nâng cao. Với hơn 40 giờ video và 50+ bài tập thực hành, bạn sẽ có nền tảng vững chắc để phát triển sự nghiệp lập trình.',
-      style: TextStyle(fontSize: 16, height: 1.5, color: Colors.grey[700]),
-    );
-  }
-
-  Widget _buildRequirements() {
-    final requirements = [
-      'Không cần kinh nghiệm lập trình trước đó',
-      'Máy tính có thể cài đặt phần mềm',
-      'Thái độ học hỏi tích cực',
-    ];
-
-    return Column(
-      children:
-          requirements
-              .map(
-                (req) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.circle, size: 6, color: Colors.grey[600]),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(req)),
-                    ],
-                  ),
-                ),
-              )
-              .toList(),
     );
   }
 
