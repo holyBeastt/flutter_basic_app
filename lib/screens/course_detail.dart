@@ -1,3 +1,9 @@
+import 'package:android_basic/api/courses_api.dart';
+import 'package:android_basic/models/course.dart';
+import 'package:android_basic/models/review.dart';
+import 'package:android_basic/models/section.dart';
+import 'package:android_basic/models/teacher_course.dart';
+import 'package:android_basic/models/user.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
@@ -29,11 +35,28 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   bool _isVideoReady = false;
   bool _isFullScreen = false;
 
+  // Dữ liệu bài học
+  List<Section> _sections = [];
+  bool _isLoadingSections = true;
+
+  // Dữ liệu reviews
+  List<Review> _reviews = [];
+  bool _isLoadingReviews = true;
+  Map<String, dynamic>? _ratingStats;
+
+  // Dữ liệu giảng viên
+  late Future<TeacherInfoResponse> _futureTeacherInfo;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     _initializeVideo();
+    _loadSections();
+    _loadReviews();
+
+    final int teacherId = widget.course['user_id']; // hoặc ID bạn truyền vào
+    _futureTeacherInfo = CoursesApi.fetchTeacherInfo(teacherId);
   }
 
   Future<void> _initializeVideo() async {
@@ -120,6 +143,71 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         }
       }
     }
+  }
+
+  void _loadSections() async {
+    try {
+      final int courseId = widget.course['id']; // 👈 Lấy từ Map course
+      final sections = await CoursesApi.fetchSections(courseId);
+
+      setState(() {
+        _sections = sections;
+        _isLoadingSections = false;
+      });
+    } catch (e) {
+      print('Lỗi khi load section: $e');
+      setState(() => _isLoadingSections = false);
+    }
+  }
+
+  void _loadReviews() async {
+    try {
+      final int courseId = widget.course['id']; // 👈 Lấy từ Map course
+
+      final reviews = await CoursesApi.fetchReviews(
+        courseId,
+      ); // Đảm bảo bạn có courseId ở widget
+
+      final stats = calculateRatingStats(reviews); // 👈 Gọi hàm tính thống kê
+
+      setState(() {
+        _reviews = reviews;
+        _ratingStats = stats; // 👈 Lưu kết quả thống kê
+        _isLoadingReviews = false;
+      });
+    } catch (e) {
+      print('Lỗi khi tải đánh giá: $e');
+      setState(() {
+        _isLoadingReviews = false;
+      });
+    }
+  }
+
+  Map<String, dynamic> calculateRatingStats(List<Review> reviews) {
+    final ratingCount = List.filled(5, 0);
+
+    for (var review in reviews) {
+      final rating = review.rating ?? 0;
+      if (rating >= 1 && rating <= 5) {
+        ratingCount[rating - 1]++;
+      }
+    }
+
+    final totalReviews = ratingCount.reduce((a, b) => a + b);
+    final avgRating =
+        totalReviews > 0
+            ? List.generate(
+                  5,
+                  (i) => (i + 1) * ratingCount[i],
+                ).reduce((a, b) => a + b) /
+                totalReviews
+            : 0.0;
+
+    return {
+      'average': avgRating,
+      'total': totalReviews,
+      'distribution': ratingCount,
+    };
   }
 
   // Hàm chuyển sang fullscreen và phát video
@@ -876,13 +964,19 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   }
 
   Widget _buildTabContent() {
+    if (_isLoadingSections) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    print('Sections: ${_sections.length}');
+
     return Container(
       height: 600,
       child: TabBarView(
         controller: _tabController,
         children: [
           _buildOverviewTab(),
-          _buildContentTab(),
+          _buildContentTab(_sections),
           _buildReviewsTab(),
           _buildInstructorTab(),
         ],
@@ -983,7 +1077,16 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     );
   }
 
-  Widget _buildContentTab() {
+  // Phần content
+  Widget _buildContentTab(List<Section> sections) {
+    int totalLessons = sections.fold(0, (sum, s) => sum + s.lessons.length);
+    int totalDuration = sections.fold(
+      0,
+      (sum, s) =>
+          sum + s.lessons.fold(0, (lSum, l) => lSum + (l.duration ?? 0)),
+    );
+    double hours = totalDuration / 3600;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -1001,7 +1104,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '12 chương • 120 bài học • 40 giờ tổng thời lượng',
+                    '${sections.length} chương • $totalLessons bài học • ${hours.toStringAsFixed(1)} giờ tổng thời lượng',
                     style: TextStyle(color: Colors.blue[700]),
                   ),
                 ),
@@ -1009,9 +1112,41 @@ class _CourseDetailPageState extends State<CourseDetailPage>
             ),
           ),
           const SizedBox(height: 16),
-          ...List.generate(5, (index) => _buildChapterItem(index + 1)),
+          ...sections
+              .asMap()
+              .entries
+              .map((entry) => _buildChapterItem(entry.key + 1, entry.value))
+              .toList(),
         ],
       ),
+    );
+  }
+
+  Widget _buildChapterItem(int index, Section section) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Chương $index: ${section.title}',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        ...section.lessons.map(
+          (lesson) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4.0),
+            child: Row(
+              children: [
+                const Icon(Icons.play_circle_outline, size: 20),
+                const SizedBox(width: 8),
+                Expanded(child: Text(lesson.title ?? 'Chưa có tiêu đề')),
+                Text(
+                  '${((lesson.duration ?? 0) / 60).toStringAsFixed(0)} phút',
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
     );
   }
 
@@ -1021,27 +1156,67 @@ class _CourseDetailPageState extends State<CourseDetailPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildRatingOverview(),
+          _buildRatingOverview(_ratingStats!),
           const SizedBox(height: 24),
           _buildSectionTitle('Đánh giá từ học viên'),
-          ...List.generate(5, (index) => _buildReviewItem()),
+          _isLoadingReviews
+              ? Center(child: CircularProgressIndicator())
+              : _reviews.isEmpty
+              ? Text('Chưa có đánh giá nào.')
+              : Column(
+                children:
+                    _reviews.map((review) => _buildReviewItem(review)).toList(),
+              ),
         ],
       ),
     );
   }
 
+  // Widget _buildInstructorTab() {
+  //   return SingleChildScrollView(
+  //     padding: const EdgeInsets.all(16),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         _buildInstructorInfo(),
+  //         const SizedBox(height: 24),
+  //         _buildSectionTitle('Khóa học khác của giảng viên'),
+  //         ...List.generate(3, (index) => _buildInstructorCourse(index)),
+  //       ],
+  //     ),
+  //   );
+  // }
+
   Widget _buildInstructorTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildInstructorInfo(),
-          const SizedBox(height: 24),
-          _buildSectionTitle('Khóa học khác của giảng viên'),
-          ...List.generate(3, (index) => _buildInstructorCourse(index)),
-        ],
-      ),
+    return FutureBuilder<TeacherInfoResponse>(
+      future: _futureTeacherInfo, // <-- biến đã khởi tạo trong initState
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return Center(child: Text('Lỗi: ${snapshot.error}'));
+        } else if (!snapshot.hasData) {
+          return const Center(child: Text('Không có dữ liệu'));
+        }
+
+        final teacher = snapshot.data!.teacher;
+        final courses = snapshot.data!.courses;
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildInstructorInfo(teacher), // <-- truyền dữ liệu giảng viên
+              const SizedBox(height: 24),
+              _buildSectionTitle('Khóa học khác của giảng viên'),
+              ...courses
+                  .map((course) => _buildInstructorCourse(course))
+                  .toList(),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1055,30 +1230,11 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     );
   }
 
-  Widget _buildChapterItem(int chapterNumber) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: ExpansionTile(
-        title: Text('Chương $chapterNumber: Kiến thức cơ bản'),
-        subtitle: Text('8 bài học • 3 giờ 20 phút'),
-        children: List.generate(
-          8,
-          (index) => ListTile(
-            leading: Icon(Icons.play_circle_outline),
-            title: Text('Bài ${index + 1}: Giới thiệu về lập trình'),
-            subtitle: Text('15 phút'),
-            trailing: Icon(Icons.lock_outline, color: Colors.grey),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget _buildRatingOverview(Map<String, dynamic> stats) {
+    final double averageRating = stats['average'];
+    final int totalReviews = stats['total'];
+    final List<int> distribution = List<int>.from(stats['distribution']);
 
-  Widget _buildRatingOverview() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1088,9 +1244,10 @@ class _CourseDetailPageState extends State<CourseDetailPage>
       child: Row(
         children: [
           Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '4.8',
+                averageRating.toStringAsFixed(1),
                 style: TextStyle(
                   fontSize: 48,
                   fontWeight: FontWeight.bold,
@@ -1100,36 +1257,46 @@ class _CourseDetailPageState extends State<CourseDetailPage>
               Row(
                 children: List.generate(
                   5,
-                  (index) => Icon(Icons.star, color: Colors.amber, size: 20),
+                  (index) => Icon(
+                    index < averageRating.round()
+                        ? Icons.star
+                        : Icons.star_border,
+                    color: Colors.amber,
+                    size: 20,
+                  ),
                 ),
               ),
-              Text('2,847 đánh giá'),
+              Text('$totalReviews đánh giá'),
             ],
           ),
           const SizedBox(width: 32),
           Expanded(
             child: Column(
-              children: List.generate(
-                5,
-                (index) => Padding(
+              children: List.generate(5, (index) {
+                final star = 5 - index;
+                final count = distribution[star - 1];
+                final percent = totalReviews > 0 ? count / totalReviews : 0.0;
+                final percentLabel = (percent * 100).toStringAsFixed(0);
+
+                return Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Row(
                     children: [
-                      Text('${5 - index}'),
+                      Text('$star'),
                       const SizedBox(width: 8),
                       Expanded(
                         child: LinearProgressIndicator(
-                          value: (5 - index) * 0.2,
+                          value: percent,
                           backgroundColor: Colors.grey[300],
                           valueColor: AlwaysStoppedAnimation(Colors.amber),
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text('${(5 - index) * 20}%'),
+                      Text('$percentLabel%'),
                     ],
                   ),
-                ),
-              ),
+                );
+              }),
             ),
           ),
         ],
@@ -1137,7 +1304,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     );
   }
 
-  Widget _buildReviewItem() {
+  Widget _buildReviewItem(Review review) {
     return Container(
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.only(bottom: 16),
@@ -1161,19 +1328,27 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Nguyễn Văn A',
+                      '${review.userName}',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     Row(
                       children: [
                         ...List.generate(
-                          5,
+                          review.rating ?? 0,
                           (index) =>
                               Icon(Icons.star, color: Colors.amber, size: 16),
                         ),
+                        ...List.generate(
+                          5 - (review.rating ?? 0),
+                          (index) => Icon(
+                            Icons.star_border,
+                            color: Colors.grey,
+                            size: 16,
+                          ),
+                        ),
                         const SizedBox(width: 8),
                         Text(
-                          '2 tuần trước',
+                          _formatTimeAgo(review.createdAt ?? ''),
                           style: TextStyle(color: Colors.grey[600]),
                         ),
                       ],
@@ -1184,69 +1359,76 @@ class _CourseDetailPageState extends State<CourseDetailPage>
             ],
           ),
           const SizedBox(height: 12),
-          Text(
-            'Khóa học rất hay và chi tiết. Giảng viên giải thích rõ ràng, dễ hiểu. Tôi đã học được rất nhiều kiến thức hữu ích từ khóa học này.',
-          ),
+          Text(review.comment ?? ""),
         ],
       ),
     );
   }
 
-  Widget _buildInstructorInfo() {
+  String _formatTimeAgo(String isoTime) {
+    final date = DateTime.tryParse(isoTime);
+    if (date == null) return '';
+
+    final now = DateTime.now();
+    final diff = now.difference(date);
+
+    if (diff.inDays >= 7) return '${(diff.inDays / 7).floor()} tuần trước';
+    if (diff.inDays > 0) return '${diff.inDays} ngày trước';
+    if (diff.inHours > 0) return '${diff.inHours} giờ trước';
+    if (diff.inMinutes > 0) return '${diff.inMinutes} phút trước';
+    return 'Vừa xong';
+  }
+
+  Widget _buildInstructorInfo(User teacher) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.grey[50],
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 40,
-                backgroundColor: Colors.grey[300],
-                child: Icon(Icons.person, size: 40),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.course['user_name'] ?? 'Giảng viên',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text('Senior Developer & Instructor'),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(Icons.star, color: Colors.amber, size: 16),
-                        Text(' 4.9 • '),
-                        Text('50,000+ học viên • '),
-                        Text('25 khóa học'),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          CircleAvatar(
+            radius: 40,
+            backgroundImage:
+                teacher.avatarUrl != null
+                    ? NetworkImage(teacher.avatarUrl!)
+                    : null,
+            backgroundColor: Colors.grey[300],
+            child:
+                teacher.avatarUrl == null ? Icon(Icons.person, size: 40) : null,
           ),
-          const SizedBox(height: 16),
-          Text(
-            'Tôi là một lập trình viên với hơn 10 năm kinh nghiệm trong ngành. Đã từng làm việc tại các công ty lớn và hiện đang giảng dạy lập trình cho hơn 50,000 học viên trên toàn thế giới.',
-            style: TextStyle(height: 1.5),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  teacher.username ?? 'Giảng viên',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(teacher.bio ?? 'Chức danh'),
+                const SizedBox(height: 8),
+                // Row(
+                //   children: [
+                //     const Icon(Icons.star, color: Colors.amber, size: 16),
+                //     Text(' ${teacher.rating ?? '4.9'} • '),
+                //     Text('${teacher.students ?? 0} học viên • '),
+                //     Text('${teacher.totalCourses ?? 0} khóa học'),
+                //   ],
+                // ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildInstructorCourse(int index) {
+  Widget _buildInstructorCourse(Course course) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -1262,6 +1444,13 @@ class _CourseDetailPageState extends State<CourseDetailPage>
             decoration: BoxDecoration(
               color: Colors.grey[300],
               borderRadius: BorderRadius.circular(4),
+              image:
+                  course.thumbnailUrl != null
+                      ? DecorationImage(
+                        image: NetworkImage(course.thumbnailUrl!),
+                        fit: BoxFit.cover,
+                      )
+                      : null,
             ),
           ),
           const SizedBox(width: 12),
@@ -1270,14 +1459,14 @@ class _CourseDetailPageState extends State<CourseDetailPage>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Khóa học lập trình ${index + 1}',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  course.title ?? 'Tên khóa học',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 Row(
                   children: [
-                    Icon(Icons.star, color: Colors.amber, size: 14),
-                    Text(' 4.7 • '),
-                    Text('₫299,000'),
+                    const Icon(Icons.star, color: Colors.amber, size: 14),
+                    Text(' ${course.rating ?? '4.7'} • '),
+                    Text(_formatCurrency(course.price)),
                   ],
                 ),
               ],
