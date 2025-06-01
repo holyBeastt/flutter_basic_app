@@ -36,11 +36,14 @@ dependencies:
   cupertino_icons: ^1.0.8
   http: ^1.4.0
   awesome_dialog: ^3.2.1
-  flutter_secure_storage: ^9.0.0 # thêm dòng này
+  flutter_secure_storage: ^9.2.4 # thêm dòng này
   jwt_decode: ^0.3.1
   media_kit: ^1.1.10+1
   media_kit_video: ^1.2.4
   media_kit_libs_video: ^1.0.4 # Native libs
+  image_picker: ^1.0.0
+  supabase_flutter: ^2.3.4
+  flutter_dotenv: ^5.1.0  
   intl: any
 
 dev_dependencies:
@@ -66,7 +69,9 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/
+    -  .env
+    - assets/google_icon.png
+    
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
