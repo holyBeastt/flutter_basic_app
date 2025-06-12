@@ -4,6 +4,7 @@ import 'package:android_basic/screens/profile_screen.dart';
 import 'package:flutter/material.dart';
 import '../helpers/auth_helper.dart';
 import 'package:android_basic/api/courses_api.dart';
+import 'package:android_basic/widgets/cusutom_bottom_navbar.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -101,7 +102,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNavigationBar(),
+      bottomNavigationBar: CustomBottomNavBar(
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+      ),
     );
   }
 
@@ -386,35 +390,6 @@ class _HomeScreenState extends State<HomeScreen> {
           return const Icon(Icons.star_border, color: Colors.orange, size: 14);
         }
       }),
-    );
-  }
-
-  Widget _buildBottomNavigationBar() {
-    return BottomNavigationBar(
-      type: BottomNavigationBarType.fixed,
-      backgroundColor: Colors.black,
-      selectedItemColor: Colors.white,
-      unselectedItemColor: Colors.grey,
-      showSelectedLabels: true,
-      showUnselectedLabels: true,
-      currentIndex: _selectedIndex,
-      onTap: _onItemTapped,
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Nổi bật'),
-        BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Tìm kiếm'),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.play_circle_outline),
-          label: 'Học tập',
-        ),
-        // BottomNavigationBarItem(
-        //   icon: Icon(Icons.favorite_border),
-        //   label: 'Wishlist',
-        // ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.person_outline),
-          label: 'Tài khoản',
-        ),
-      ],
     );
   }
 }
