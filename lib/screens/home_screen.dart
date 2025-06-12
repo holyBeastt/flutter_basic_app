@@ -1,4 +1,5 @@
 import 'package:android_basic/screens/course_detail.dart';
+import 'package:android_basic/screens/personal_courses_screen.dart';
 import 'package:android_basic/screens/profile_screen.dart';
 import 'package:flutter/material.dart';
 import '../helpers/auth_helper.dart';
@@ -14,21 +15,25 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   String username = "Username";
+  int? userID;
   List<dynamic> coursesData = [];
 
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
-    getUserName();
+    getUserData();
     getCoursesList();
   }
 
-  Future<void> getUserName() async {
+  Future<void> getUserData() async {
+    // Lấy tên người dùng
     final name = await AuthHelper.getUsernameFromToken();
-
+    // Lấy id người dùng
+    final id = await AuthHelper.getUserIdFromToken();
     setState(() {
       username = name ?? 'Ẩn danh';
+      userID = id ?? 0;
     });
   }
 
@@ -44,16 +49,41 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // void _onItemTapped(int index) {
+  //   if (index == 3) {
+  //     // Nếu bấm vào tab "Tài khoản" thì chuyển sang màn hình tài khoản
+  //     Navigator.push(
+  //       context,
+  //       MaterialPageRoute(builder: (context) => const ProfileScreen()),
+  //     );
+  //     // Không đổi _selectedIndex để không làm đổi giao diện Home
+  //     return;
+  //   }
+  //   setState(() {
+  //     _selectedIndex = index;
+  //   });
+  // }
+
   void _onItemTapped(int index) {
+    if (index == 2) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PersonalCoursesScreen(userId: userID ?? 0),
+        ),
+      );
+      return;
+    }
+
     if (index == 3) {
-      // Nếu bấm vào tab "Tài khoản" thì chuyển sang màn hình tài khoản
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const ProfileScreen()),
       );
-      // Không đổi _selectedIndex để không làm đổi giao diện Home
       return;
     }
+
+    // Với index 0 và 1: chỉ cập nhật giao diện
     setState(() {
       _selectedIndex = index;
     });
@@ -151,81 +181,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
-  // Widget _buildFeaturePromo() {
-  //   return Container(
-  //     height: 240,
-  //     width: double.infinity,
-  //     color: const Color(0xFF8A56FF),
-  //     padding: const EdgeInsets.all(16),
-  //     child: Stack(
-  //       children: [
-  //         Positioned(
-  //           right: 0,
-  //           top: 20,
-  //           child: Container(
-  //             width: 200,
-  //             height: 180,
-  //             decoration: BoxDecoration(
-  //               color: Colors.black.withOpacity(0.3),
-  //               borderRadius: BorderRadius.circular(100),
-  //             ),
-  //             child: ClipPath(
-  //               child: Image.network(
-  //                 'https://jrmaxpvxillhwsuvmagp.supabase.co/storage/v1/object/public/images/home_main_img/main_home.jpg',
-  //                 fit: BoxFit.cover,
-  //               ),
-  //             ),
-  //           ),
-  //         ),
-  //         // Positioned(
-  //         //   left: 0,
-  //         //   right: 100,
-  //         //   bottom: 40,
-  //         //   child: Container(
-  //         //     width: 200,
-  //         //     child: const Text(
-  //         //       'Các kỹ năng mở ra cánh cửa thành công cho bạn',
-  //         //       style: TextStyle(
-  //         //         color: Colors.white,
-  //         //         fontWeight: FontWeight.bold,
-  //         //         fontSize: 24,
-  //         //       ),
-  //         //     ),
-  //         //   ),
-  //         // ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
-  // Widget _buildSkillsHeadline() {
-  //   return Container(
-  //     padding: const EdgeInsets.all(16),
-  //     child: const Text(
-  //       'Đây là đợt ưu đãi hấp dẫn nhất mùa này của chúng tôi. Mở ra các cơ hội nghề nghiệp mới với các khóa học có giá từ 199.000 đ. Ưu đãi sẽ kết',
-  //       style: TextStyle(color: Colors.white, fontSize: 14),
-  //     ),
-  //   );
-  // }
-
-  // Widget _buildCourseRecommendation() {
-  //   return Container(
-  //     padding: const EdgeInsets.symmetric(horizontal: 16),
-  //     child: RichText(
-  //       text: const TextSpan(
-  //         style: TextStyle(color: Colors.white, fontSize: 14),
-  //         children: [
-  //           TextSpan(text: 'Vì bạn đã xem "'),
-  //           TextSpan(
-  //             text: 'Canva 101 - Làm chủ kỹ năng thiết kế Canva cho ...',
-  //             style: TextStyle(color: Color(0xFF9370DB)),
-  //           ),
-  //         ],
-  //       ),
-  //     ),
-  //   );
-  // }
 
   Widget _buildIntroSection() {
     return Container(

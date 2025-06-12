@@ -5,6 +5,7 @@ import 'package:android_basic/models/section.dart';
 import 'package:android_basic/models/teacher_course.dart';
 import 'package:android_basic/models/user.dart';
 import 'package:android_basic/screens/video_player_screen.dart';
+import 'package:android_basic/widgets/review_panel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
@@ -1105,85 +1106,15 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   }
 
   Widget _buildReviewsTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildRatingOverview(_ratingStats!),
-          const SizedBox(height: 24),
-          _buildSectionTitle('Đánh giá từ học viên'),
-          _isLoadingReviews
-              ? Center(child: CircularProgressIndicator())
-              : _reviews.isEmpty
-              ? Text('Chưa có đánh giá nào.')
-              : Column(
-                children:
-                    _reviews.map((review) => _buildReviewItem(review)).toList(),
-              ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildReviewItem(Review review) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: Colors.grey[300],
-                child: Icon(Icons.person),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${review.userName}',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    Row(
-                      children: [
-                        ...List.generate(
-                          review.rating ?? 0,
-                          (index) =>
-                              Icon(Icons.star, color: Colors.amber, size: 16),
-                        ),
-                        ...List.generate(
-                          5 - (review.rating ?? 0),
-                          (index) => Icon(
-                            Icons.star_border,
-                            color: Colors.grey,
-                            size: 16,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _formatTimeAgo(review.createdAt ?? ''),
-                          style: TextStyle(color: Colors.grey[600]),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(review.comment ?? ""),
-        ],
-      ),
+    return ReviewPanel(
+      reviews: _reviews,
+      isLoading: _isLoadingReviews,
+      ratingStats: _ratingStats,
+      onSubmit: (review) {
+        setState(() {
+          _reviews.insert(0, review);
+        });
+      },
     );
   }
 

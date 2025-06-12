@@ -12,11 +12,13 @@ class AuthHelper {
     return payload['username'];
   }
 
-  static Future<String?> getUserIdFromToken() async {
+  static Future<int?> getUserIdFromToken() async {
     final token = await _storage.read(key: 'jwt_token');
     if (token == null) return null;
 
-    Map<String, dynamic> payload = Jwt.parseJwt(token);
-    return payload['id']?.toString();
+    final payload = Jwt.parseJwt(token);
+    return payload['id'] is int
+        ? payload['id'] as int
+        : int.tryParse(payload['id'].toString());
   }
 }
