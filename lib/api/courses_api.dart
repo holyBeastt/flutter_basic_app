@@ -7,12 +7,15 @@ import 'package:http/http.dart' as http;
 import '../config/server.dart';
 
 class CoursesApi {
-  static Future<List<dynamic>> getCoursesList() async {
+  static Future<List<Course>> getCoursesList() async {
     final url = Uri.parse('$baseUrl/api/courses/top-courses-list');
     final response = await http.get(url);
 
     if (response.statusCode == 200) {
-      return json.decode(response.body); // Trả về list courses
+      final data = json.decode(response.body);
+      return (data as List)
+          .map((e) => Course.fromJson(e as Map<String, dynamic>))
+          .toList();
     } else {
       throw Exception('Failed to load courses');
     }

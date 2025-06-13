@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../helpers/auth_helper.dart';
 import 'package:android_basic/api/courses_api.dart';
 import 'package:android_basic/widgets/cusutom_bottom_navbar.dart';
+import '../models/course.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -234,14 +235,13 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
             child: _buildCourseCard(
-              course['title'] ?? '',
-              course['user_name'] ?? 'Giảng viên chưa rõ',
-              _formatCurrency(course['discount_price']),
-              course['price'] != null ? _formatCurrency(course['price']) : '',
-              (course['rating'] as num?)?.toDouble() ??
-                  0.0, // ✅ ép kiểu an toàn
-              course['student_count'] ?? 0,
-              course['thumbnail_url'] ?? '',
+              course.title ?? '',
+              course.userName ?? 'Giảng viên chưa rõ',
+              _formatCurrency(course.discountPrice),
+              course.price != null ? _formatCurrency(course.price) : '',
+              (course.rating as num?)?.toDouble() ?? 0.0, // ✅ ép kiểu an toàn
+              course.studentCount ?? 0,
+              course.thumbnailUrl ?? '',
             ),
           );
         },
