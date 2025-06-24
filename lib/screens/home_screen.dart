@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import '../helpers/auth_helper.dart';
 import 'package:android_basic/api/courses_api.dart';
 import 'package:android_basic/screens/search_screen.dart';
+
 class HomeScreen extends StatefulWidget {
   final String? category;
   final String? searchQuery;
-  
-  const HomeScreen({Key? key, this.category , this.searchQuery}) : super(key: key);
+
+  const HomeScreen({Key? key, this.category, this.searchQuery})
+    : super(key: key);
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -21,9 +23,9 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> allCourses = [];
   List<Map<String, dynamic>> displayCourses = [];
   String? _selectedCategory;
-    bool _isLoading = false;
+  bool _isLoading = false;
   @override
-void initState() {
+  void initState() {
     super.initState();
     print('=== HOME SCREEN DEBUG ===');
     print('Category received: ${widget.category}');
@@ -33,11 +35,10 @@ void initState() {
     getUserName();
 
     // Kiểm tra có category không để quyết định gọi API nào
-     if (widget.searchQuery != null && widget.searchQuery!.isNotEmpty) {
+    if (widget.searchQuery != null && widget.searchQuery!.isNotEmpty) {
       // Gọi API tìm kiếm với widget.searchQuery
       searchCourses(widget.searchQuery!);
-    }
-    else if (widget.category != null && widget.category!.isNotEmpty) {
+    } else if (widget.category != null && widget.category!.isNotEmpty) {
       print('Loading courses for category: ${widget.category}');
       _selectedCategory = widget.category;
       getCoursesByCategory(widget.category!);
@@ -55,7 +56,7 @@ void initState() {
     });
   }
 
- Future<void> getCoursesList() async {
+  Future<void> getCoursesList() async {
     try {
       setState(() {
         _isLoading = true;
@@ -77,7 +78,8 @@ void initState() {
       });
     }
   }
-Future<void> searchCourses(String query) async {
+
+  Future<void> searchCourses(String query) async {
     try {
       setState(() {
         _isLoading = true;
@@ -107,6 +109,7 @@ Future<void> searchCourses(String query) async {
       );
     }
   }
+
   // Tách riêng method cho category
   Future<void> getCoursesByCategory(String category) async {
     try {
@@ -367,31 +370,23 @@ Future<void> searchCourses(String query) async {
   // 1. Cập nhật _buildCoursesList() để thêm onTap
   Widget _buildCoursesList() {
     if (_isLoading) {
-    return Container(
-      height: 300,
-      child: Center(
-        child: CircularProgressIndicator(
-          color: Colors.white,
-        ),
-      ),
-    );
-  }
+      return Container(
+        height: 300,
+        child: Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
+    }
 
-  // Hiển thị thông báo khi không có khóa học
-  if (coursesData.isEmpty) {
-    return Container(
-      height: 300,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.search_off,
-              color: Colors.grey,
-              size: 64,
-            ),
-            SizedBox(height: 16),
-            Text(
+    // Hiển thị thông báo khi không có khóa học
+    if (coursesData.isEmpty) {
+      return Container(
+        height: 300,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.search_off, color: Colors.grey, size: 64),
+              SizedBox(height: 16),
+              Text(
                 widget.searchQuery != null && widget.searchQuery!.isNotEmpty
                     ? 'Không tìm thấy khóa học nào với từ khóa "${widget.searchQuery}"'
                     : _selectedCategory != null
@@ -400,24 +395,24 @@ Future<void> searchCourses(String query) async {
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey, fontSize: 16),
               ),
-            if ((_selectedCategory != null ||
+              if ((_selectedCategory != null ||
                   (widget.searchQuery != null &&
                       widget.searchQuery!.isNotEmpty))) ...[
-              SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: getCoursesList,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black,
+                SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: getCoursesList,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black,
+                  ),
+                  child: Text('Xem tất cả khóa học'),
                 ),
-                child: Text('Xem tất cả khóa học'),
-              ),
+              ],
             ],
-          ],
+          ),
         ),
-      ),
-    );
-  }
+      );
+    }
     return Container(
       padding: const EdgeInsets.only(top: 16),
       height: 300,
@@ -438,14 +433,13 @@ Future<void> searchCourses(String query) async {
               );
             },
             child: _buildCourseCard(
-              course['title'] ?? '',
-              course['user_name'] ?? 'Giảng viên chưa rõ',
-              _formatCurrency(course['discount_price']),
-              course['price'] != null ? _formatCurrency(course['price']) : '',
-              (course['rating'] as num?)?.toDouble() ??
-                  0.0, // ✅ ép kiểu an toàn
-              course['student_count'] ?? 0,
-              course['thumbnail_url'] ?? '',
+              course.title ?? '',
+              course.userName ?? 'Giảng viên chưa rõ',
+              _formatCurrency(course.discountPrice),
+              course.price != null ? _formatCurrency(course.price) : '',
+              (course.rating as num?)?.toDouble() ?? 0.0, // ✅ ép kiểu an toàn
+              course.studentCount ?? 0,
+              course.thumbnailUrl ?? '',
             ),
           );
         },
