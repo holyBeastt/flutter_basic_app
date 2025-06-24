@@ -1084,8 +1084,10 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                     context,
                     MaterialPageRoute(
                       builder:
-                          (context) =>
-                              VideoPlayerScreen(url: lesson.contentUrl!),
+                          (context) => VideoPlayerScreen(
+                            url: lesson.contentUrl!,
+                            lessonId: lesson.id,
+                          ),
                     ),
                   );
                 } else {
