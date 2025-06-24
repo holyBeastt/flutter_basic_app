@@ -1,9 +1,10 @@
 import 'package:android_basic/screens/course_detail.dart';
+import 'package:android_basic/screens/personal_courses_screen.dart';
 import 'package:android_basic/screens/profile_screen.dart';
 import 'package:flutter/material.dart';
 import '../helpers/auth_helper.dart';
 import 'package:android_basic/api/courses_api.dart';
-import 'package:android_basic/screens/search_screen.dart';
+
 class HomeScreen extends StatefulWidget {
   final String? category;
   final String? searchQuery;
@@ -17,6 +18,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   String username = "Username";
+  int? userID;
   List<dynamic> coursesData = [];
   List<Map<String, dynamic>> allCourses = [];
   List<Map<String, dynamic>> displayCourses = [];
@@ -25,33 +27,18 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
 void initState() {
     super.initState();
-    print('=== HOME SCREEN DEBUG ===');
-    print('Category received: ${widget.category}');
-    print('Search query received: ${widget.searchQuery}');
-    print('========================');
-
     getUserName();
-
-    // Kiểm tra có category không để quyết định gọi API nào
-     if (widget.searchQuery != null && widget.searchQuery!.isNotEmpty) {
-      // Gọi API tìm kiếm với widget.searchQuery
-      searchCourses(widget.searchQuery!);
-    }
-    else if (widget.category != null && widget.category!.isNotEmpty) {
-      print('Loading courses for category: ${widget.category}');
-      _selectedCategory = widget.category;
-      getCoursesByCategory(widget.category!);
-    } else {
-      print('Loading all courses');
-      getCoursesList();
-    }
+    getCoursesList();
   }
 
-  Future<void> getUserName() async {
+  Future<void> getUserData() async {
+    // Lấy tên người dùng
     final name = await AuthHelper.getUsernameFromToken();
-
+    // Lấy id người dùng
+    final id = await AuthHelper.getUserIdFromToken();
     setState(() {
       username = name ?? 'Ẩn danh';
+      userID = id ?? 0;
     });
   }
 
@@ -139,24 +126,22 @@ Future<void> searchCourses(String query) async {
     }
   }
 
+  // void _onItemTapped(int index) {
+  //   if (index == 3) {
+  //     // Nếu bấm vào tab "Tài khoản" thì chuyển sang màn hình tài khoản
+  //     Navigator.push(
+  //       context,
+  //       MaterialPageRoute(builder: (context) => const ProfileScreen()),
+  //     );
+  //     // Không đổi _selectedIndex để không làm đổi giao diện Home
+  //     return;
+  //   }
+  //   setState(() {
+  //     _selectedIndex = index;
+  //   });
+  // }
+
   void _onItemTapped(int index) {
-    if (index == 0) {
-      // Tab "Nổi bật" - Load tất cả courses
-      getCoursesList();
-      setState(() {
-        _selectedIndex = index;
-      });
-      return;
-    }
-
-    if (index == 1) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const SearchScreen()),
-      );
-      return;
-    }
-
     if (index == 3) {
       Navigator.push(
         context,
@@ -164,7 +149,6 @@ Future<void> searchCourses(String query) async {
       );
       return;
     }
-
     setState(() {
       _selectedIndex = index;
     });
@@ -182,7 +166,10 @@ Future<void> searchCourses(String query) async {
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNavigationBar(),
+      bottomNavigationBar: CustomBottomNavBar(
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+      ),
     );
   }
 
@@ -262,81 +249,6 @@ Future<void> searchCourses(String query) async {
       ),
     );
   }
-
-  // Widget _buildFeaturePromo() {
-  //   return Container(
-  //     height: 240,
-  //     width: double.infinity,
-  //     color: const Color(0xFF8A56FF),
-  //     padding: const EdgeInsets.all(16),
-  //     child: Stack(
-  //       children: [
-  //         Positioned(
-  //           right: 0,
-  //           top: 20,
-  //           child: Container(
-  //             width: 200,
-  //             height: 180,
-  //             decoration: BoxDecoration(
-  //               color: Colors.black.withOpacity(0.3),
-  //               borderRadius: BorderRadius.circular(100),
-  //             ),
-  //             child: ClipPath(
-  //               child: Image.network(
-  //                 'https://jrmaxpvxillhwsuvmagp.supabase.co/storage/v1/object/public/images/home_main_img/main_home.jpg',
-  //                 fit: BoxFit.cover,
-  //               ),
-  //             ),
-  //           ),
-  //         ),
-  //         // Positioned(
-  //         //   left: 0,
-  //         //   right: 100,
-  //         //   bottom: 40,
-  //         //   child: Container(
-  //         //     width: 200,
-  //         //     child: const Text(
-  //         //       'Các kỹ năng mở ra cánh cửa thành công cho bạn',
-  //         //       style: TextStyle(
-  //         //         color: Colors.white,
-  //         //         fontWeight: FontWeight.bold,
-  //         //         fontSize: 24,
-  //         //       ),
-  //         //     ),
-  //         //   ),
-  //         // ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
-  // Widget _buildSkillsHeadline() {
-  //   return Container(
-  //     padding: const EdgeInsets.all(16),
-  //     child: const Text(
-  //       'Đây là đợt ưu đãi hấp dẫn nhất mùa này của chúng tôi. Mở ra các cơ hội nghề nghiệp mới với các khóa học có giá từ 199.000 đ. Ưu đãi sẽ kết',
-  //       style: TextStyle(color: Colors.white, fontSize: 14),
-  //     ),
-  //   );
-  // }
-
-  // Widget _buildCourseRecommendation() {
-  //   return Container(
-  //     padding: const EdgeInsets.symmetric(horizontal: 16),
-  //     child: RichText(
-  //       text: const TextSpan(
-  //         style: TextStyle(color: Colors.white, fontSize: 14),
-  //         children: [
-  //           TextSpan(text: 'Vì bạn đã xem "'),
-  //           TextSpan(
-  //             text: 'Canva 101 - Làm chủ kỹ năng thiết kế Canva cho ...',
-  //             style: TextStyle(color: Color(0xFF9370DB)),
-  //           ),
-  //         ],
-  //       ),
-  //     ),
-  //   );
-  // }
 
   Widget _buildIntroSection() {
     return Container(
@@ -438,14 +350,13 @@ Future<void> searchCourses(String query) async {
               );
             },
             child: _buildCourseCard(
-              course['title'] ?? '',
-              course['user_name'] ?? 'Giảng viên chưa rõ',
-              _formatCurrency(course['discount_price']),
-              course['price'] != null ? _formatCurrency(course['price']) : '',
-              (course['rating'] as num?)?.toDouble() ??
-                  0.0, // ✅ ép kiểu an toàn
-              course['student_count'] ?? 0,
-              course['thumbnail_url'] ?? '',
+              course.title ?? '',
+              course.userName ?? 'Giảng viên chưa rõ',
+              _formatCurrency(course.discountPrice),
+              course.price != null ? _formatCurrency(course.price) : '',
+              (course.rating as num?)?.toDouble() ?? 0.0, // ✅ ép kiểu an toàn
+              course.studentCount ?? 0,
+              course.thumbnailUrl ?? '',
             ),
           );
         },
@@ -594,35 +505,6 @@ Future<void> searchCourses(String query) async {
           return const Icon(Icons.star_border, color: Colors.orange, size: 14);
         }
       }),
-    );
-  }
-
-  Widget _buildBottomNavigationBar() {
-    return BottomNavigationBar(
-      type: BottomNavigationBarType.fixed,
-      backgroundColor: Colors.black,
-      selectedItemColor: Colors.white,
-      unselectedItemColor: Colors.grey,
-      showSelectedLabels: true,
-      showUnselectedLabels: true,
-      currentIndex: _selectedIndex,
-      onTap: _onItemTapped,
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Nổi bật'),
-        BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Tìm kiếm'),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.play_circle_outline),
-          label: 'Học tập',
-        ),
-        // BottomNavigationBarItem(
-        //   icon: Icon(Icons.favorite_border),
-        //   label: 'Wishlist',
-        // ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.person_outline),
-          label: 'Tài khoản',
-        ),
-      ],
     );
   }
 }

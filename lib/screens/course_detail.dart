@@ -4,6 +4,8 @@ import 'package:android_basic/models/review.dart';
 import 'package:android_basic/models/section.dart';
 import 'package:android_basic/models/teacher_course.dart';
 import 'package:android_basic/models/user.dart';
+import 'package:android_basic/screens/video_player_screen.dart';
+import 'package:android_basic/widgets/review_panel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
@@ -11,8 +13,17 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:intl/intl.dart'; // import để dùng NumberFormat
 import 'dart:convert';
 
+// class CourseDetailPage extends StatefulWidget {
+//   final Map<String, dynamic> course;
+
+//   const CourseDetailPage({Key? key, required this.course}) : super(key: key);
+
+//   @override
+//   State<CourseDetailPage> createState() => _CourseDetailPageState();
+// }
+
 class CourseDetailPage extends StatefulWidget {
-  final Map<String, dynamic> course;
+  final Course course;
 
   const CourseDetailPage({Key? key, required this.course}) : super(key: key);
 
@@ -51,16 +62,20 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-    _initializeVideo();
+
+    String? videoUrl = widget.course.previewVideoUrl;
+
+    if (videoUrl != null && videoUrl.isNotEmpty) {
+      _initializeVideo(videoUrl);
+    }
     _loadSections();
     _loadReviews();
 
-    final int teacherId = widget.course['user_id']; // hoặc ID bạn truyền vào
+    final int teacherId = widget.course.userId ?? 0;
     _futureTeacherInfo = CoursesApi.fetchTeacherInfo(teacherId);
   }
 
-  Future<void> _initializeVideo() async {
-    String? videoUrl = widget.course['preview_video_url'];
+  Future<void> _initializeVideo(String videoUrl) async {
     print('Video URL from database: $videoUrl');
 
     if (videoUrl != null && videoUrl.isNotEmpty) {
@@ -147,7 +162,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
 
   void _loadSections() async {
     try {
-      final int courseId = widget.course['id']; // 👈 Lấy từ Map course
+      final int courseId = widget.course.id; // 👈 Lấy từ Map course
       final sections = await CoursesApi.fetchSections(courseId);
 
       setState(() {
@@ -162,7 +177,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
 
   void _loadReviews() async {
     try {
-      final int courseId = widget.course['id']; // 👈 Lấy từ Map course
+      final int courseId = widget.course.id; // 👈 Lấy từ Map course
 
       final reviews = await CoursesApi.fetchReviews(
         courseId,
@@ -397,7 +412,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.course['title'] ?? 'Khóa học',
+                          widget.course.title ?? 'Khóa học',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 18,
@@ -406,9 +421,9 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        if (widget.course['instructor'] != null)
+                        if (widget.course.userName != null)
                           Text(
-                            'Giảng viên: ${widget.course['instructor']}',
+                            'Giảng viên: ${widget.course.userName}',
                             style: TextStyle(
                               color: Colors.white70,
                               fontSize: 14,
@@ -613,9 +628,9 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         background: Stack(
           fit: StackFit.expand,
           children: [
-            widget.course['thumbnail_url'] != null
+            widget.course.thumbnailUrl != null
                 ? Image.network(
-                  widget.course['thumbnail_url'],
+                  widget.course.thumbnailUrl ?? "",
                   fit: BoxFit.cover,
                   errorBuilder:
                       (context, error, stackTrace) =>
@@ -674,92 +689,19 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     );
   }
 
-  // Widget _buildCourseHeader() {
-  //   return Padding(
-  //     padding: const EdgeInsets.all(16),
-  //     child: Column(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: [
-  //         Text(
-  //           widget.course['title'] ?? 'Tên khóa học',
-  //           style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-  //         ),
-  //         const SizedBox(height: 8),
-  //         Text(
-  //           widget.course['subtitle'] ?? 'Tên khóa học',
-  //           style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-  //         ),
-  //         const SizedBox(height: 12),
-  //         Row(
-  //           children: [
-  //             Icon(Icons.star, color: Colors.amber, size: 20),
-  //             const SizedBox(width: 4),
-  //             Text('4.8', style: TextStyle(fontWeight: FontWeight.bold)),
-  //             const SizedBox(width: 8),
-  //             Text(
-  //               '(2,847 đánh giá)',
-  //               style: TextStyle(color: Colors.grey[600]),
-  //             ),
-  //             const SizedBox(width: 16),
-  //             Icon(Icons.people, color: Colors.grey[600], size: 20),
-  //             const SizedBox(width: 4),
-  //             Text(
-  //               '15,234 học viên',
-  //               style: TextStyle(color: Colors.grey[600]),
-  //             ),
-  //           ],
-  //         ),
-  //         const SizedBox(height: 12),
-  //         Row(
-  //           children: [
-  //             CircleAvatar(
-  //               radius: 16,
-  //               backgroundColor: Colors.grey[300],
-  //               child: Icon(Icons.person, size: 20),
-  //             ),
-  //             const SizedBox(width: 8),
-  //             Text(
-  //               'Tạo bởi ${widget.course['user_name'] ?? 'Giảng viên'}',
-  //               style: TextStyle(
-  //                 color: Colors.blue[600],
-  //                 fontWeight: FontWeight.w500,
-  //               ),
-  //             ),
-  //           ],
-  //         ),
-  //         const SizedBox(height: 8),
-  //         Row(
-  //           children: [
-  //             Icon(Icons.update, size: 16, color: Colors.grey[600]),
-  //             const SizedBox(width: 4),
-  //             Text(
-  //               'Cập nhật lần cuối 3/2024',
-  //               style: TextStyle(color: Colors.grey[600]),
-  //             ),
-  //             const SizedBox(width: 16),
-  //             Icon(Icons.language, size: 16, color: Colors.grey[600]),
-  //             const SizedBox(width: 4),
-  //             Text('Tiếng Việt', style: TextStyle(color: Colors.grey[600])),
-  //           ],
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
   String _formatNumber(int number) {
     return NumberFormat.decimalPattern('vi').format(number);
   }
 
   Widget _buildCourseHeader() {
-    final title = widget.course['title'] ?? 'Tên khóa học';
-    final subtitle = widget.course['subtitle'] ?? '';
-    final rating = (widget.course['rating'] ?? 0.0).toDouble();
-    final reviewCount = widget.course['review_count'] ?? 0;
-    final studentCount = widget.course['student_count'] ?? 0;
-    final userName = widget.course['user_name'] ?? 'Giảng viên';
+    final title = widget.course.title ?? 'Tên khóa học';
+    final subtitle = widget.course.subtitle ?? '';
+    final rating = (widget.course.rating ?? 0.0).toDouble();
+    final reviewCount = widget.course.reviewCount ?? 0;
+    final studentCount = widget.course.studentCount ?? 0;
+    final userName = widget.course.userName ?? 'Giảng viên';
     final lastUpdated =
-        widget.course['last_updated'] ?? '3/2024'; // Có thể là date string
+        widget.course.updatedAt ?? '3/2024'; // Có thể là date string
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -853,7 +795,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(
-                _formatCurrency(widget.course['discount_price']),
+                _formatCurrency(widget.course.discountPrice),
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
@@ -861,9 +803,9 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                 ),
               ),
               const SizedBox(width: 12),
-              if (widget.course['price'] != null)
+              if (widget.course.price != null)
                 Text(
-                  _formatCurrency(widget.course['price']),
+                  _formatCurrency(widget.course.price),
                   style: TextStyle(
                     fontSize: 18,
                     decoration: TextDecoration.lineThrough,
@@ -873,10 +815,10 @@ class _CourseDetailPageState extends State<CourseDetailPage>
             ],
           ),
           const SizedBox(height: 4),
-          if (widget.course['discount_price'] != null &&
-              widget.course['price'] != null)
+          if (widget.course.discountPrice != null &&
+              widget.course.price != null)
             Text(
-              '🔥 Giảm giá ${_calculateDiscountPercent(widget.course['price'], widget.course['discount_price'])}%',
+              '🔥 Giảm giá ${_calculateDiscountPercent(widget.course.price, widget.course.discountPrice)}%',
               style: TextStyle(
                 color: Colors.red[600],
                 fontWeight: FontWeight.w500,
@@ -1008,7 +950,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   }
 
   Widget _buildLearningOutcomes() {
-    final raw = widget.course['what_you_learn']?.toString() ?? '';
+    final raw = widget.course.whatYouLearn?.toString() ?? '';
     final decoded = _decodeEscaped(raw);
     final List<String> outcomes =
         decoded.split('\n').where((e) => e.trim().isNotEmpty).toList();
@@ -1039,7 +981,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
 
   Widget _buildCourseDescription() {
     final description =
-        widget.course['description']?.toString() ?? 'Chưa có mô tả khóa học.';
+        widget.course.description?.toString() ?? 'Chưa có mô tả khóa học.';
 
     return Text(
       description,
@@ -1048,7 +990,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   }
 
   Widget _buildRequirements() {
-    final raw = widget.course['requirements']?.toString() ?? '';
+    final raw = widget.course.requirements?.toString() ?? '';
     final decoded = _decodeEscaped(raw);
     final List<String> requirements =
         decoded.split('\n').where((e) => e.trim().isNotEmpty).toList();
@@ -1133,15 +1075,37 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         ...section.lessons.map(
           (lesson) => Padding(
             padding: const EdgeInsets.symmetric(vertical: 4.0),
-            child: Row(
-              children: [
-                const Icon(Icons.play_circle_outline, size: 20),
-                const SizedBox(width: 8),
-                Expanded(child: Text(lesson.title ?? 'Chưa có tiêu đề')),
-                Text(
-                  '${((lesson.duration ?? 0) / 60).toStringAsFixed(0)} phút',
-                ),
-              ],
+            child: InkWell(
+              onTap: () async {
+                if (lesson.contentUrl != null &&
+                    lesson.contentUrl!.isNotEmpty) {
+                  print('🎬 Đang mở video với URL: ${lesson.contentUrl!}');
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (context) =>
+                              VideoPlayerScreen(url: lesson.contentUrl!),
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Không có video cho bài học này'),
+                    ),
+                  );
+                }
+              },
+              child: Row(
+                children: [
+                  const Icon(Icons.play_circle_outline, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(lesson.title ?? 'Chưa có tiêu đề')),
+                  Text(
+                    '${((lesson.duration ?? 0) / 60).toStringAsFixed(0)} phút',
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1151,41 +1115,17 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   }
 
   Widget _buildReviewsTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildRatingOverview(_ratingStats!),
-          const SizedBox(height: 24),
-          _buildSectionTitle('Đánh giá từ học viên'),
-          _isLoadingReviews
-              ? Center(child: CircularProgressIndicator())
-              : _reviews.isEmpty
-              ? Text('Chưa có đánh giá nào.')
-              : Column(
-                children:
-                    _reviews.map((review) => _buildReviewItem(review)).toList(),
-              ),
-        ],
-      ),
+    return ReviewPanel(
+      reviews: _reviews,
+      isLoading: _isLoadingReviews,
+      ratingStats: _ratingStats,
+      onSubmit: (review) {
+        setState(() {
+          _reviews.insert(0, review);
+        });
+      },
     );
   }
-
-  // Widget _buildInstructorTab() {
-  //   return SingleChildScrollView(
-  //     padding: const EdgeInsets.all(16),
-  //     child: Column(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: [
-  //         _buildInstructorInfo(),
-  //         const SizedBox(height: 24),
-  //         _buildSectionTitle('Khóa học khác của giảng viên'),
-  //         ...List.generate(3, (index) => _buildInstructorCourse(index)),
-  //       ],
-  //     ),
-  //   );
-  // }
 
   Widget _buildInstructorTab() {
     return FutureBuilder<TeacherInfoResponse>(
@@ -1299,67 +1239,6 @@ class _CourseDetailPageState extends State<CourseDetailPage>
               }),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildReviewItem(Review review) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: Colors.grey[300],
-                child: Icon(Icons.person),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${review.userName}',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    Row(
-                      children: [
-                        ...List.generate(
-                          review.rating ?? 0,
-                          (index) =>
-                              Icon(Icons.star, color: Colors.amber, size: 16),
-                        ),
-                        ...List.generate(
-                          5 - (review.rating ?? 0),
-                          (index) => Icon(
-                            Icons.star_border,
-                            color: Colors.grey,
-                            size: 16,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _formatTimeAgo(review.createdAt ?? ''),
-                          style: TextStyle(color: Colors.grey[600]),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(review.comment ?? ""),
         ],
       ),
     );

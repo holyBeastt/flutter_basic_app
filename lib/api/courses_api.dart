@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:android_basic/models/course.dart';
 import 'package:android_basic/models/review.dart';
 import 'package:android_basic/models/section.dart';
 import 'package:android_basic/models/teacher_course.dart';
@@ -6,12 +7,15 @@ import 'package:http/http.dart' as http;
 import '../config/server.dart';
 
 class CoursesApi {
-  static Future<List<dynamic>> getCoursesList() async {
+  static Future<List<Course>> getCoursesList() async {
     final url = Uri.parse('$baseUrl/api/courses/top-courses-list');
     final response = await http.get(url);
 
     if (response.statusCode == 200) {
-      return json.decode(response.body); // Trả về list courses
+      final data = json.decode(response.body);
+      return (data as List)
+          .map((e) => Course.fromJson(e as Map<String, dynamic>))
+          .toList();
     } else {
       throw Exception('Failed to load courses');
     }
@@ -129,6 +133,38 @@ static Future<List<dynamic>> getCoursesByCategory(String category) async {
     } catch (e) {
       print('Error in fetchTeacherInfo: $e');
       rethrow;
+    }
+  }
+
+  static Future<Map<String, List<Course>>> fetchPersonalCourses(
+    int userID,
+  ) async {
+    final response = await http.get(
+      Uri.parse(
+        '$baseUrl/api/v1/personal-courses/$userID/personal-courses-list',
+      ),
+    );
+
+    if (response.statusCode == 200) {
+      final jsonData = json.decode(response.body);
+
+      // Parse danh sách ownedCourses
+      final List<Course> ownedCourses =
+          (jsonData['ownedCourses'] as List)
+              .map((e) => Course.fromJson(e))
+              .toList();
+
+      // Parse danh sách enrolledCourses (dữ liệu nằm trong key 'courses')
+      final List<Course> enrolledCourses =
+          (jsonData['enrolledCourses'] as List)
+              .map((e) => Course.fromJson(e['courses']))
+              .toList();
+
+      return {'ownedCourses': ownedCourses, 'enrolledCourses': enrolledCourses};
+    } else {
+      throw Exception(
+        'Không thể tải danh sách khóa học (${response.statusCode})',
+      );
     }
   }
 }
