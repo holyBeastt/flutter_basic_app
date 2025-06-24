@@ -16,7 +16,26 @@ class CoursesApi {
       throw Exception('Failed to load courses');
     }
   }
+  static Future<List<dynamic>> getCoursesBySearch(String query) async {
+    final url = Uri.parse('$baseUrl/api/courses/search?query=$query');
+    final response = await http.get(url);
 
+    if (response.statusCode == 200) {
+      return json.decode(response.body); // Trả về list courses theo search
+    } else {
+      throw Exception('Failed to load courses by search');
+    }
+  }
+static Future<List<dynamic>> getCoursesByCategory(String category) async {
+    final url = Uri.parse('$baseUrl/api/courses/category/$category');
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body); // Trả về list courses theo category
+    } else {
+      throw Exception('Failed to load courses by category');
+    }
+  }
   static Future<List<Section>> fetchSections(int courseId) async {
     try {
       final response = await http.get(
