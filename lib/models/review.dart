@@ -1,5 +1,5 @@
 class Review {
-  final int id;
+  // final int id;
   final int userId;
   final String? userName;
   final int courseId;
@@ -10,7 +10,7 @@ class Review {
   final int? helpfulCount;
 
   Review({
-    required this.id,
+    // required this.id,
     required this.userId,
     required this.userName,
     required this.courseId,
@@ -23,7 +23,7 @@ class Review {
 
   factory Review.fromJson(Map<String, dynamic> json) {
     return Review(
-      id: json['id'],
+      // id: json['id'],
       userId: json['user_id'],
       userName: json['user_name'] ?? 'Người dùng ẩn danh',
       courseId: json['course_id'],

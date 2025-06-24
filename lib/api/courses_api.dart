@@ -20,22 +20,29 @@ class CoursesApi {
       throw Exception('Failed to load courses');
     }
   }
-  static Future<List<dynamic>> getCoursesBySearch(String query) async {
+static Future<List<Course>> getCoursesBySearch(String query) async {
     final url = Uri.parse('$baseUrl/api/courses/search?query=$query');
     final response = await http.get(url);
 
     if (response.statusCode == 200) {
-      return json.decode(response.body); // Trả về list courses theo search
+      final data = json.decode(response.body);
+      return (data as List)
+          .map((e) => Course.fromJson(e as Map<String, dynamic>))
+          .toList();
     } else {
       throw Exception('Failed to load courses by search');
     }
   }
-static Future<List<dynamic>> getCoursesByCategory(String category) async {
+
+  static Future<List<Course>> getCoursesByCategory(String category) async {
     final url = Uri.parse('$baseUrl/api/courses/category/$category');
     final response = await http.get(url);
 
     if (response.statusCode == 200) {
-      return json.decode(response.body); // Trả về list courses theo category
+      final data = json.decode(response.body);
+      return (data as List)
+          .map((e) => Course.fromJson(e as Map<String, dynamic>))
+          .toList();
     } else {
       throw Exception('Failed to load courses by category');
     }
@@ -95,6 +102,30 @@ static Future<List<dynamic>> getCoursesByCategory(String category) async {
       rethrow;
     }
   }
+static Future<bool> submitReview({
+    required int courseId,
+    required int userId,
+    required String userName,
+    required int rating,
+    required String comment,
+  }) async {
+    final url = Uri.parse('$baseUrl/api/courses/$courseId/reviews');
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'user_id': userId,
+        'user_name': userName,
+        'rating': rating,
+        'comment': comment,
+      }),
+    );
+
+    print('Phản hồi status: ${response.statusCode}');
+
+    return response.statusCode == 200 || response.statusCode == 201;
+  }
+
 
   static Future<TeacherInfoResponse> fetchTeacherInfo(int userID) async {
     try {
