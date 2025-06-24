@@ -1119,6 +1119,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
       reviews: _reviews,
       isLoading: _isLoadingReviews,
       ratingStats: _ratingStats,
+       courseId: widget.course.id,
       onSubmit: (review) {
         setState(() {
           _reviews.insert(0, review);

@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:android_basic/models/review.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:android_basic/api/courses_api.dart';
+import 'package:android_basic/api/user_api.dart';
+import 'package:android_basic/models/user.dart';
 
 class ReviewPanel extends StatefulWidget {
   final List<Review> reviews;
   final bool isLoading;
   final Function(Review) onSubmit;
+  final int courseId;
   final Map<String, dynamic>? ratingStats;
 
   const ReviewPanel({
@@ -14,6 +20,7 @@ class ReviewPanel extends StatefulWidget {
     required this.isLoading,
     required this.onSubmit,
     required this.ratingStats,
+    required this.courseId,
   }) : super(key: key);
 
   @override
@@ -24,14 +31,38 @@ class _ReviewPanelState extends State<ReviewPanel> {
   double _userRating = 0;
   final TextEditingController _commentController = TextEditingController();
   bool _isSubmitting = false;
+  User? _currentUser;
+  late List<Review> _reviews;
+  Review? _myReview;
 
   @override
-  void dispose() {
-    _commentController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _reviews = List.from(widget.reviews);
+    _loadUserInfo();
   }
 
-  void _handleSubmit() {
+  Future<void> _loadUserInfo() async {
+    try {
+      final userMap = await UserAPI.getUserInfo();
+      final user = User.fromJson(userMap['user'] ?? userMap);
+      Review? myReview;
+      try {
+        myReview = widget.reviews.firstWhere((r) => r.userId == user.id);
+      } catch (e) {
+        myReview = null;
+      }
+
+      setState(() {
+        _currentUser = user;
+        _myReview = myReview;
+      });
+    } catch (e) {
+      print('Lỗi tải thông tin người dùng: $e');
+    }
+  }
+
+  void _handleSubmit() async {
     if (_userRating == 0 || _commentController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Vui lòng chọn số sao và nhập bình luận')),
@@ -39,32 +70,68 @@ class _ReviewPanelState extends State<ReviewPanel> {
       return;
     }
 
-    final newReview = Review(
-      id: 0, // gán tạm, nếu có API sẽ cập nhật lại sau
-      userId: 0, // tuỳ bạn lấy userId thực tế
-      userName: 'Bạn',
-      courseId: widget.reviews.isNotEmpty ? widget.reviews.first.courseId : 0,
-      rating: _userRating.toInt(),
-      comment: _commentController.text.trim(),
-      createdAt: DateTime.now().toIso8601String(),
-      isVerified: true,
-      helpfulCount: 0,
-    );
+    setState(() => _isSubmitting = true);
 
-    widget.onSubmit(newReview);
+    final userId = _currentUser?.id ?? 0;
 
-    setState(() {
-      _userRating = 0;
-      _commentController.clear();
-    });
+    try {
+      final success = await CoursesApi.submitReview(
+        courseId: widget.courseId,
+        userId: userId,
+        userName: _currentUser?.username ?? 'Người dùng ẩn danh',
+        rating: _userRating.toInt(),
+        comment: _commentController.text.trim(),
+      );
+
+      final submittedRating = _userRating.toInt();
+      final submittedComment = _commentController.text.trim();
+
+      setState(() {
+        _isSubmitting = false;
+        _userRating = 0;
+        _commentController.clear();
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success ? 'Gửi đánh giá thành công!' : 'Gửi đánh giá thất bại!',
+          ),
+        ),
+      );
+
+      if (success) {
+        final newReview = Review(
+          courseId: widget.courseId,
+          userId: userId,
+          userName: _currentUser?.username ?? '',
+          rating: submittedRating,
+          comment: submittedComment,
+          createdAt: DateTime.now().toIso8601String(),
+          isVerified: false,
+          helpfulCount: 0,
+        );
+
+        setState(() {
+          _reviews.insert(0, newReview);
+          _myReview = newReview;
+        });
+
+        widget.onSubmit.call(newReview);
+      }
+    } catch (e) {
+      setState(() => _isSubmitting = false);
+      print('Lỗi khi gửi đánh giá: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Gửi đánh giá thất bại!')));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        FocusScope.of(context).unfocus(); // 👉 Ẩn bàn phím khi tap ra ngoài
-      },
+      onTap: () => FocusScope.of(context).unfocus(),
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -72,7 +139,7 @@ class _ReviewPanelState extends State<ReviewPanel> {
           children: [
             _buildRatingOverview(widget.ratingStats),
             const SizedBox(height: 24),
-            _buildReviewForm(), // Nhập đánh giá + gửi
+            _myReview != null ? _buildSubmittedReviewBox() : _buildReviewForm(),
             const SizedBox(height: 32),
             Text(
               'Đánh giá từ học viên',
@@ -81,16 +148,34 @@ class _ReviewPanelState extends State<ReviewPanel> {
             const SizedBox(height: 12),
             widget.isLoading
                 ? Center(child: CircularProgressIndicator())
-                : widget.reviews.isEmpty
+                : _reviews.isEmpty
                 ? Text('Chưa có đánh giá nào.')
                 : Column(
                   children:
-                      widget.reviews
+                      _reviews
                           .map((review) => _buildReviewItem(review))
                           .toList(),
                 ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSubmittedReviewBox() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.green[50],
+        border: Border.all(color: Colors.green),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle, color: Colors.green),
+          const SizedBox(width: 8),
+          Expanded(child: Text("Bạn đã đánh giá khóa học này.")),
+        ],
       ),
     );
   }
@@ -200,7 +285,6 @@ class _ReviewPanelState extends State<ReviewPanel> {
   }
 
   Widget _buildRatingOverview(Map<String, dynamic>? stats) {
-    // Bạn có thể render biểu đồ cột, trung bình sao ở đây
     return Text("Tổng quan đánh giá: ⭐⭐⭐⭐☆ (giả lập)");
   }
 
