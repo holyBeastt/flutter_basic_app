@@ -32,7 +32,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
  Future<String?> uploadAvatarToSupabase(File file, String userId) async {
     final supabase = Supabase.instance.client;
     final fileExt = file.path.split('.').last;
-    final fileName = 'avatar_$userId.$fileExt';
+    final fileName =
+        'avatar_${userId}_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
     final filePath = 'avatar/$fileName';
 
     try {
@@ -83,17 +84,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/api/users/infor/$userId'),
+        Uri.parse('$baseUrl/api/users/$userId/get-user-info'),
         headers: {'Authorization': 'Bearer $token'},
       );
 
-      print('📥 Calling API: $baseUrl/api/users/infor/$userId');
+      print('📥 Calling API: $baseUrl/api/users/$userId/get-user-info');
       print('📥 Response body: ${response.body}');
-
+print('📥 Response code======: $response');
       if (response.statusCode == 200) {
-        final user = jsonDecode(response.body)['user'];
-        print('✅ API trả về user: $user');
+       final user = jsonDecode(response.body);
 
+        print('✅ API trả về user====: $user');
+        print(
+          '🧠 Avatar URL khi load lại=========: ${user['avatar_url'] ?? user['avatar']}',
+        );
       setState(() {
           userMap = {
             'id': user['id'],
@@ -101,11 +105,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             'password': user['password'],
             'bio': user['bio'],
             'sex': user['sex'],
-            'avatar_url': user['avatar'] ?? user['avatar_url'],
+            'avatar_url': user['avatar_url'],
+
           };
           isLoading = false;
         });
-        await _storage.write(key: 'user', value: jsonEncode(user));
+      
+
+        await _storage.write(key: 'user', value: jsonEncode(userMap));
       } else {
         print('Lỗi response ${response.statusCode}: ${response.body}');
         setState(() => isLoading = false);
@@ -302,11 +309,13 @@ final updatedData = <String, dynamic>{
       }
 
       final avatarUrl = await uploadAvatarToSupabase(avatarFile!, userId);
+      print('🔍 avatarUrl =================$avatarUrl');
       if (avatarUrl != null) {
         await updateUserInfo(newAvatarUrl: avatarUrl);
         setState(() {
           userMap['avatar_url'] = avatarUrl;
         });
+        print('Avatar URL show: ${userMap['avatar_url']}');
       } else {
         ScaffoldMessenger.of(
           context,

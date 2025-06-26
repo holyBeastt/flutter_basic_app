@@ -5,6 +5,7 @@ import 'package:android_basic/models/course.dart'; // Import model Course
 import 'package:android_basic/screens/personal_courses_screen.dart';
 import 'package:android_basic/helpers/auth_helper.dart';
 import 'package:android_basic/screens/home_screen.dart';
+import 'package:android_basic/screens/profile_screen.dart';
 class SearchScreen extends StatefulWidget {
   const SearchScreen({Key? key}) : super(key: key);
 
@@ -351,7 +352,8 @@ class _SearchScreenState extends State<SearchScreen> {
             ), // Thay bằng tên màn hình học tập của bạn
           );
         } else if (index == 3) {
-          // Navigator.push(context, MaterialPageRoute(builder: (context) => ProfileScreen()));
+          
+          Navigator.push(context, MaterialPageRoute(builder: (context) => ProfileScreen()));
         }
       },
       items: const [

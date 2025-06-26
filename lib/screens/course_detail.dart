@@ -6,10 +6,12 @@ import 'package:android_basic/models/teacher_course.dart';
 import 'package:android_basic/models/user.dart';
 import 'package:android_basic/screens/video_player_screen.dart';
 import 'package:android_basic/widgets/review_panel.dart';
+import 'package:android_basic/helpers/auth_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:android_basic/api/enrollment_api.dart';
 import 'package:intl/intl.dart'; // import để dùng NumberFormat
 import 'dart:convert';
 
@@ -73,8 +75,19 @@ class _CourseDetailPageState extends State<CourseDetailPage>
 
     final int teacherId = widget.course.userId ?? 0;
     _futureTeacherInfo = CoursesApi.fetchTeacherInfo(teacherId);
+      _checkEnrollmentStatus();
   }
-
+Future<void> _checkEnrollmentStatus() async {
+    final userId = await AuthHelper.getUserIdFromToken();
+    final courseId = widget.course.id;
+    final enrolled = await EnrollmentApi.checkEnrolled(
+      courseId: courseId,
+      userId: userId ?? 0,
+    );
+    setState(() {
+      _isEnrolled = enrolled;
+    });
+  }
   Future<void> _initializeVideo(String videoUrl) async {
     print('Video URL from database: $videoUrl');
 
@@ -829,14 +842,39 @@ class _CourseDetailPageState extends State<CourseDetailPage>
             children: [
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _isEnrolled = !_isEnrolled;
-                    });
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        _isEnrolled ? Colors.green : Colors.purple[700],
+                  onPressed:
+                      _isEnrolled
+                          ? null
+                          : () async {
+                            // Lấy userId (từ AuthHelper hoặc storage)
+                            final userId =
+                                await AuthHelper.getUserIdFromToken();
+                            final courseId = widget.course.id;
+
+                            final success = await EnrollmentApi.enrollCourse(
+                              courseId: courseId,
+                              userId: userId ?? 0,
+                            );
+
+                            if (success) {
+                              setState(() {
+                                _isEnrolled = true;
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Đăng ký khóa học thành công!'),
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Đăng ký thất bại!')),
+                              );
+                            }
+                          },
+                   style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.purple[700],
+                    disabledBackgroundColor:
+                        Colors.green, // ép màu xanh khi disable
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
