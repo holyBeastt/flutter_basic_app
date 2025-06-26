@@ -23,7 +23,7 @@ class CoursesApi {
 static Future<List<Course>> getCoursesBySearch(String query) async {
     final url = Uri.parse('$baseUrl/api/courses/search?query=$query');
     final response = await http.get(url);
-
+print('Response status=============: ${response.statusCode}');
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       return (data as List)
@@ -37,7 +37,7 @@ static Future<List<Course>> getCoursesBySearch(String query) async {
   static Future<List<Course>> getCoursesByCategory(String category) async {
     final url = Uri.parse('$baseUrl/api/courses/category/$category');
     final response = await http.get(url);
-
+print('Response status=============: ${response.statusCode}');
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       return (data as List)
@@ -52,7 +52,6 @@ static Future<List<Course>> getCoursesBySearch(String query) async {
       final response = await http.get(
         Uri.parse('$baseUrl/api/courses/$courseId/sections'),
       );
-
       if (response.statusCode == 200) {
         final dynamic decodedData = json.decode(response.body);
 

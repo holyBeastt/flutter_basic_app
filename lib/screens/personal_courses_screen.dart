@@ -5,7 +5,7 @@ import '../api/courses_api.dart';
 import '../widgets/cusutom_bottom_navbar.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
-
+import 'package:android_basic/screens/search_screen.dart';
 class PersonalCoursesScreen extends StatefulWidget {
   final int userId;
   final int currentIndex;
@@ -186,6 +186,12 @@ class _PersonalCoursesScreenState extends State<PersonalCoursesScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => HomeScreen()),
+      );
+    } else if (index == 1) {
+      // Chuyển sang trang Tìm kiếm
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => SearchScreen()),
       );
     } else if (index == 3) {
       // Chuyển về Profile

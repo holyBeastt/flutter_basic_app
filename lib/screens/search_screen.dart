@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import '../config/server.dart';
+import 'package:android_basic/api/courses_api.dart';
+import 'package:android_basic/screens/course_detail.dart';
+import 'package:android_basic/models/course.dart'; // Import model Course
+import 'package:android_basic/screens/personal_courses_screen.dart';
+import 'package:android_basic/helpers/auth_helper.dart';
 import 'package:android_basic/screens/home_screen.dart';
-
 class SearchScreen extends StatefulWidget {
   const SearchScreen({Key? key}) : super(key: key);
 
@@ -13,7 +15,10 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
 
-
+  List<Course> _searchResults = [];
+  bool _isSearching = false;
+  int? userID;
+  bool _hasSearched = false;
   // Danh sách category
   final List<Map<String, dynamic>> _categories = [
     {'title': 'Kinh doanh', 'icon': Icons.business},
@@ -39,18 +44,37 @@ class _SearchScreenState extends State<SearchScreen> {
         child: Column(
           children: [
             _buildSearchHeader(),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 8),
-                    _buildCategoriesSection(),
-                  ],
-                ),
-              ),
-            ),
+      Expanded(
+              child:
+                  _isSearching
+                      ? const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      )
+                      : _searchResults.isNotEmpty
+                      ? _buildSearchResults()
+                      : !_hasSearched
+                      ? _buildCategoriesSection() // Hiển thị danh mục khi chưa tìm kiếm
+                      : Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.search_off,
+                              color: Colors.white54,
+                              size: 64,
+                            ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Không tìm thấy khóa học nào',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 18,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+            )
           ],
         ),
       ),
@@ -70,7 +94,7 @@ class _SearchScreenState extends State<SearchScreen> {
           controller: _searchController,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
-            hintText: 'Tìm kiếm',
+            hintText: 'Tìm kiếm khóa học...',
             hintStyle: TextStyle(color: Colors.grey[400]),
             prefixIcon: IconButton(
               icon: const Icon(Icons.search, color: Colors.white),
@@ -96,27 +120,9 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-
-  Widget _buildSearchTag(String tag) {
-    return GestureDetector(
-      onTap: () => _performSearch(tag),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.white, width: 1),
-          borderRadius: BorderRadius.circular(25),
-        ),
-        child: Text(
-          tag,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
-        ),
-      ),
-    );
-  }
-
   Widget _buildCategoriesSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       children: [
         const Text(
           'Duyệt qua thể loại',
@@ -127,12 +133,7 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        Column(
-          children:
-              _categories
-                  .map((category) => _buildCategoryItem(category))
-                  .toList(),
-        ),
+        ..._categories.map((category) => _buildCategoryItem(category)).toList(),
       ],
     );
   }
@@ -163,6 +164,169 @@ class _SearchScreenState extends State<SearchScreen> {
       ),
     );
   }
+
+  Widget _buildSearchResults() {
+    return ListView.builder(
+      itemCount: _searchResults.length,
+      itemBuilder: (context, index) {
+        final course = _searchResults[index];
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => CourseDetailPage(course: course),
+              ),
+            );
+          },
+          child: _buildCourseCard(
+            course.title ?? '',
+            course.userName ?? 'Giảng viên chưa rõ',
+            _formatCurrency(course.discountPrice),
+            course.price != null ? _formatCurrency(course.price) : '',
+            course.rating ?? 0.0,
+            course.studentCount ?? 0,
+            course.thumbnailUrl ?? '',
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCourseCard(
+    String title,
+    String author,
+    String price,
+    String originalPrice,
+    double rating,
+    int reviews,
+    String imageUrl, {
+    bool hasBlenderLogo = false,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(color: Colors.white.withOpacity(0.02), blurRadius: 2),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 90,
+            height: 90,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              color: Colors.grey[200],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder:
+                    (_, __, ___) =>
+                        const Icon(Icons.broken_image, color: Colors.grey),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    author,
+                    style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Text(
+                        rating.toString(),
+                        style: const TextStyle(
+                          color: Colors.orange,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                      _buildStarRating(rating),
+                      const SizedBox(width: 4),
+                      Text(
+                        '($reviews)',
+                        style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Text(
+                        price,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                      if (originalPrice.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Text(
+                            originalPrice,
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              decoration: TextDecoration.lineThrough,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStarRating(double rating) {
+    return Row(
+      children: List.generate(5, (index) {
+        if (index < rating.floor()) {
+          return const Icon(Icons.star, color: Colors.orange, size: 14);
+        } else if (index == rating.floor() && rating % 1 > 0) {
+          return const Icon(Icons.star_half, color: Colors.orange, size: 14);
+        } else {
+          return const Icon(Icons.star_border, color: Colors.orange, size: 14);
+        }
+      }),
+    );
+  }
+
+  String _formatCurrency(num? value) {
+    if (value == null) return '';
+    return '${value.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')} đ';
+  }
+
   Widget _buildBottomNavigationBar() {
     return BottomNavigationBar(
       type: BottomNavigationBarType.fixed,
@@ -172,13 +336,23 @@ class _SearchScreenState extends State<SearchScreen> {
       showSelectedLabels: true,
       showUnselectedLabels: true,
       currentIndex: 1, // Tìm kiếm đang active
-      onTap: (index) {
+    onTap: (index) {
         if (index == 0) {
-          Navigator.pop(context); // Quay về Home
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => HomeScreen()),
+            (route) => false, // Xóa hết các route cũ, chỉ giữ lại Home
+          );
+        } else if (index == 2) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PersonalCoursesScreen(userId: userID ?? 0),
+            ), // Thay bằng tên màn hình học tập của bạn
+          );
         } else if (index == 3) {
           // Navigator.push(context, MaterialPageRoute(builder: (context) => ProfileScreen()));
         }
-        // Các index khác có thể thêm navigation tương ứng
       },
       items: const [
         BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Nổi bật'),
@@ -194,42 +368,63 @@ class _SearchScreenState extends State<SearchScreen> {
       ],
     );
   }
+Future<void> getUserData() async {
+    // Lấy id người dùng
+    final id = await AuthHelper.getUserIdFromToken();
+    setState(() {
+      userID = id ?? 0;
+    });
+  }
+  void _performSearch(String query) async {
+    setState(() {
+      _isSearching = true;
+      _hasSearched = true;
+      _searchResults.clear();
+    });
 
- void _performSearch(String query) {
-    // Khi search, về Home và truyền query
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder: (context) => HomeScreen(category: null, searchQuery: query),
-      ),
-      (route) => false,
-    );
+    try {
+      final results = await CoursesApi.getCoursesBySearch(query);
+      setState(() {
+        _searchResults = results;
+        _isSearching = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isSearching = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi tìm kiếm: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
- void _navigateToCategory(String categoryName) async {
+  void _navigateToCategory(String categoryName) async {
     try {
-      print('Navigate to category: $categoryName');
+      final dbCategory = _mapCategoryToDbName(categoryName);
+      setState(() {
+        _isSearching = true;
+        _hasSearched = true; 
+        _searchResults.clear();
+      });
 
-      // Map tên hiển thị sang tên DB category
-      String dbCategory = _mapCategoryToDbName(categoryName);
-
-      // Navigate về HomeScreen với category
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (context) => HomeScreen(category: dbCategory),
-        ),
-        (route) => false, // Clear tất cả routes trước đó
-      );
+      final results = await CoursesApi.getCoursesByCategory(dbCategory);
+      setState(() {
+        _searchResults = results;
+        _isSearching = false;
+      });
     } catch (e) {
-      print('Navigation error: $e');
+      setState(() {
+        _isSearching = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
       );
     }
   }
 
-  // Thêm function mapping tên category
   String _mapCategoryToDbName(String displayName) {
     final Map<String, String> categoryMapping = {
       'CNTT & Phần mềm': 'develop',
@@ -245,12 +440,11 @@ class _SearchScreenState extends State<SearchScreen> {
       'Giáo dục': 'education',
       'Du lịch & Ẩm thực': 'travel',
       'Khoa học & Công nghệ': 'science',
-
-
     };
 
     return categoryMapping[displayName] ?? displayName.toLowerCase();
   }
+
   @override
   void dispose() {
     _searchController.dispose();
