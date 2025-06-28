@@ -12,6 +12,7 @@ class ReviewPanel extends StatefulWidget {
   final bool isLoading;
   final Function(Review) onSubmit;
   final int courseId;
+  final bool canSubmit;
   final Map<String, dynamic>? ratingStats;
 
   const ReviewPanel({
@@ -21,6 +22,7 @@ class ReviewPanel extends StatefulWidget {
     required this.onSubmit,
     required this.ratingStats,
     required this.courseId,
+    this.canSubmit = false,
   }) : super(key: key);
 
   @override
@@ -45,7 +47,9 @@ class _ReviewPanelState extends State<ReviewPanel> {
   Future<void> _loadUserInfo() async {
     try {
       final userMap = await UserAPI.getUserInfo();
+      print('Thông tin ==================: $userMap');
       final user = User.fromJson(userMap['user'] ?? userMap);
+      print('User parse: $user');
       Review? myReview;
       try {
         myReview = widget.reviews.firstWhere((r) => r.userId == user.id);
@@ -73,7 +77,9 @@ class _ReviewPanelState extends State<ReviewPanel> {
     setState(() => _isSubmitting = true);
 
     final userId = _currentUser?.id ?? 0;
-
+print('Đang gửi đánh giá với userId: $userId ');
+print('Đánh giá: ${_userRating.toInt()} sao, bình luận: ${_commentController.text.trim()}');
+print('Thông tin người dùng: ${_currentUser?.username ?? 'Người dùng ẩn danh'}');
     try {
       final success = await CoursesApi.submitReview(
         courseId: widget.courseId,
@@ -138,9 +144,25 @@ class _ReviewPanelState extends State<ReviewPanel> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildRatingOverview(widget.ratingStats),
-            const SizedBox(height: 24),
-            _myReview != null ? _buildSubmittedReviewBox() : _buildReviewForm(),
-            const SizedBox(height: 32),
+            const SizedBox(height: 8),
+           _myReview != null
+                ?  Column(
+                  children: [
+                    _buildSubmittedReviewBox(),
+                    const SizedBox(
+                      height: 24,
+                    ), // Thêm dòng này để tạo khoảng cách
+                  ],
+                )
+                : (widget.canSubmit
+                    ? _buildReviewForm()
+                    : Padding(
+                      padding: const EdgeInsets.only(top: 4, bottom: 8),
+                      child: Text(
+                        'Bạn cần đăng ký khóa học để gửi đánh giá.',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    )),
             Text(
               'Đánh giá từ học viên',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),

@@ -88,6 +88,7 @@ Future<void> _checkEnrollmentStatus() async {
       _isEnrolled = enrolled;
     });
   }
+
   Future<void> _initializeVideo(String videoUrl) async {
     print('Video URL from database: $videoUrl');
 
@@ -1160,6 +1161,7 @@ Future<void> _checkEnrollmentStatus() async {
       isLoading: _isLoadingReviews,
       ratingStats: _ratingStats,
        courseId: widget.course.id,
+        canSubmit: _isEnrolled,
       onSubmit: (review) {
         setState(() {
           _reviews.insert(0, review);

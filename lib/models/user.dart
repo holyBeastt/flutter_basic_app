@@ -7,7 +7,7 @@ class User {
   final String? password;
   final String? avatarUrl;
   final String? bio;
-  final String? isInstructor;
+  final bool? isInstructor; // <-- Đổi sang bool?
   final String? email;
   final String? phone;
   final bool? isActive;
@@ -21,7 +21,7 @@ class User {
     this.password,
     this.avatarUrl,
     this.bio,
-    this.isInstructor,
+    this.isInstructor, // <-- Đúng kiểu bool?
     this.email,
     this.phone,
     required this.isActive,
@@ -37,7 +37,7 @@ class User {
       password: json['password'] as String?,
       avatarUrl: json['avatar_url'] as String?,
       bio: json['bio'] as String?,
-      isInstructor: json['is_instructor'] as String?,
+      isInstructor: json['is_instructor'] as bool?, // <-- Sửa lại dòng này!
       email: json['email'] as String?,
       phone: json['phone'] as String?,
       isActive: json['is_active'] as bool? ?? true,
@@ -54,7 +54,7 @@ class User {
       'password': password,
       'avatar_url': avatarUrl,
       'bio': bio,
-      'is_instructor': isInstructor,
+      'is_instructor': isInstructor, // <-- Giữ nguyên bool?
       'email': email,
       'phone': phone,
       'is_active': isActive,
