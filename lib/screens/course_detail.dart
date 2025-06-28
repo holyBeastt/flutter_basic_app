@@ -60,6 +60,9 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   // Dữ liệu giảng viên
   late Future<TeacherInfoResponse> _futureTeacherInfo;
 
+  // Dữ liệu khóa học cá nhân
+  late Future<Map<String, List<Course>>> _personalCoursesFuture;
+
   @override
   void initState() {
     super.initState();
@@ -75,9 +78,21 @@ class _CourseDetailPageState extends State<CourseDetailPage>
 
     final int teacherId = widget.course.userId ?? 0;
     _futureTeacherInfo = CoursesApi.fetchTeacherInfo(teacherId);
-      _checkEnrollmentStatus();
+    _checkEnrollmentStatus();
+
+    getPersonalCourses();
   }
-Future<void> _checkEnrollmentStatus() async {
+
+  Future<void> getPersonalCourses() async {
+    // Lấy id người dùng
+    final id = await AuthHelper.getUserIdFromToken();
+
+    if (id != null) {
+      _personalCoursesFuture = CoursesApi.fetchPersonalCourses(id);
+    }
+  }
+
+  Future<void> _checkEnrollmentStatus() async {
     final userId = await AuthHelper.getUserIdFromToken();
     final courseId = widget.course.id;
     final enrolled = await EnrollmentApi.checkEnrolled(
@@ -872,7 +887,7 @@ Future<void> _checkEnrollmentStatus() async {
                               );
                             }
                           },
-                   style: ElevatedButton.styleFrom(
+                  style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.purple[700],
                     disabledBackgroundColor:
                         Colors.green, // ép màu xanh khi disable
@@ -949,19 +964,42 @@ Future<void> _checkEnrollmentStatus() async {
       return const Center(child: CircularProgressIndicator());
     }
 
-    print('Sections: ${_sections.length}');
+    return FutureBuilder<Map<String, List<Course>>>(
+      future: _personalCoursesFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-    return Container(
-      height: 600,
-      child: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildOverviewTab(),
-          _buildContentTab(_sections),
-          _buildReviewsTab(),
-          _buildInstructorTab(),
-        ],
-      ),
+        if (snapshot.hasError) {
+          return Center(child: Text('Lỗi tải dữ liệu khóa học'));
+        }
+
+        if (!snapshot.hasData) {
+          return Center(child: Text('Không có dữ liệu'));
+        }
+
+        final ownedCourses = snapshot.data!['ownedCourses']!;
+        final enrolledCourses = snapshot.data!['enrolledCourses']!;
+        final courseHasAccess = canOpenCourse(
+          widget.course.id,
+          ownedCourses,
+          enrolledCourses,
+        );
+
+        return SizedBox(
+          height: 600,
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildOverviewTab(),
+              _buildContentTab(_sections, courseHasAccess), // 👈 truyền đúng
+              _buildReviewsTab(),
+              _buildInstructorTab(),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1059,7 +1097,7 @@ Future<void> _checkEnrollmentStatus() async {
   }
 
   // Phần content
-  Widget _buildContentTab(List<Section> sections) {
+  Widget _buildContentTab(List<Section> sections, bool hasAccess) {
     int totalLessons = sections.fold(0, (sum, s) => sum + s.lessons.length);
     int totalDuration = sections.fold(
       0,
@@ -1096,14 +1134,25 @@ Future<void> _checkEnrollmentStatus() async {
           ...sections
               .asMap()
               .entries
-              .map((entry) => _buildChapterItem(entry.key + 1, entry.value))
+              .map(
+                (entry) => _buildChapterItem(
+                  entry.key + 1,
+                  entry.value,
+                  hasAccess, // ✅ truyền vào từng chương
+                ),
+              )
               .toList(),
         ],
       ),
     );
   }
 
-  Widget _buildChapterItem(int index, Section section) {
+  bool canOpenCourse(int courseId, List<Course> owned, List<Course> enrolled) {
+    return owned.any((c) => c.id == courseId) ||
+        enrolled.any((c) => c.id == courseId);
+  }
+
+  Widget _buildChapterItem(int index, Section section, bool hasAccess) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1111,19 +1160,27 @@ Future<void> _checkEnrollmentStatus() async {
           'Chương $index: ${section.title}',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        ...section.lessons.map(
-          (lesson) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4.0),
+        ...section.lessons.map((lesson) {
+          final bool canWatch =
+              hasAccess; // hoặc hasAccess || (lesson.isPreview ?? false);
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
             child: InkWell(
-              onTap: () async {
-                if (lesson.contentUrl != null &&
-                    lesson.contentUrl!.isNotEmpty) {
-                  print('🎬 Đang mở video với URL: ${lesson.contentUrl!}');
+              onTap: () {
+                if (!canWatch) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Bạn cần đăng ký khóa học')),
+                  );
+                  return;
+                }
+
+                if (lesson.contentUrl?.isNotEmpty == true) {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder:
-                          (context) => VideoPlayerScreen(
+                          (_) => VideoPlayerScreen(
                             url: lesson.contentUrl!,
                             lessonId: lesson.id,
                           ),
@@ -1131,37 +1188,130 @@ Future<void> _checkEnrollmentStatus() async {
                   );
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Không có video cho bài học này'),
-                    ),
+                    const SnackBar(content: Text('Không có video')),
                   );
                 }
               },
-              child: Row(
-                children: [
-                  const Icon(Icons.play_circle_outline, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(lesson.title ?? 'Chưa có tiêu đề')),
-                  Text(
-                    '${((lesson.duration ?? 0) / 60).toStringAsFixed(0)} phút',
-                  ),
-                ],
+              child: Opacity(
+                opacity: canWatch ? 1 : 0.4,
+                child: Row(
+                  children: [
+                    Icon(
+                      canWatch ? Icons.play_circle_outline : Icons.lock,
+                      size: 20,
+                      color: canWatch ? null : Colors.grey,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        lesson.title ?? 'Chưa có tiêu đề',
+                        style: TextStyle(
+                          color: canWatch ? null : Colors.grey,
+                          fontStyle: canWatch ? null : FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${((lesson.duration ?? 0) / 60).toStringAsFixed(0)} phút',
+                      style: TextStyle(color: canWatch ? null : Colors.grey),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ),
+          );
+        }).toList(),
         const SizedBox(height: 16),
       ],
     );
   }
+
+  // Widget _buildChapterItem(int index, Section section, bool hasAccess) {
+  //   return Column(
+  //     crossAxisAlignment: CrossAxisAlignment.start,
+  //     children: [
+  //       Text(
+  //         'Chương $index: ${section.title}',
+  //         style: const TextStyle(fontWeight: FontWeight.bold),
+  //       ),
+  //       ...section.lessons.map((lesson) {
+  //         // final bool isFree = lesson.isPreview ?? false; // nếu có bài xem thử
+  //         final bool canWatch = hasAccess || false;
+
+  //         return Padding(
+  //           padding: const EdgeInsets.symmetric(vertical: 4),
+  //           child: InkWell(
+  //             onTap: () async {
+  //               if (!canWatch) {
+  //                 ScaffoldMessenger.of(context).showSnackBar(
+  //                   const SnackBar(
+  //                     content: Text('Bạn cần đăng ký khóa học để xem video'),
+  //                   ),
+  //                 );
+  //                 return;
+  //               }
+
+  //               if (lesson.contentUrl?.isNotEmpty == true) {
+  //                 Navigator.push(
+  //                   context,
+  //                   MaterialPageRoute(
+  //                     builder:
+  //                         (_) => VideoPlayerScreen(
+  //                           url: lesson.contentUrl!,
+  //                           lessonId: lesson.id,
+  //                         ),
+  //                   ),
+  //                 );
+  //               } else {
+  //                 ScaffoldMessenger.of(context).showSnackBar(
+  //                   const SnackBar(
+  //                     content: Text('Không có video cho bài học này'),
+  //                   ),
+  //                 );
+  //               }
+  //             },
+  //             // 🔒 Khoá giao diện nếu không được xem
+  //             child: Opacity(
+  //               opacity: canWatch ? 1.0 : 0.4, // làm mờ
+  //               child: Row(
+  //                 children: [
+  //                   Icon(
+  //                     canWatch ? Icons.play_circle_outline : Icons.lock,
+  //                     size: 20,
+  //                     color: canWatch ? null : Colors.grey,
+  //                   ),
+  //                   const SizedBox(width: 8),
+  //                   Expanded(
+  //                     child: Text(
+  //                       lesson.title ?? 'Chưa có tiêu đề',
+  //                       style: TextStyle(
+  //                         color: canWatch ? null : Colors.grey,
+  //                         fontStyle: canWatch ? null : FontStyle.italic,
+  //                       ),
+  //                     ),
+  //                   ),
+  //                   Text(
+  //                     '${((lesson.duration ?? 0) / 60).toStringAsFixed(0)} phút',
+  //                     style: TextStyle(color: canWatch ? null : Colors.grey),
+  //                   ),
+  //                 ],
+  //               ),
+  //             ),
+  //           ),
+  //         );
+  //       }),
+  //       const SizedBox(height: 16),
+  //     ],
+  //   );
+  // }
 
   Widget _buildReviewsTab() {
     return ReviewPanel(
       reviews: _reviews,
       isLoading: _isLoadingReviews,
       ratingStats: _ratingStats,
-       courseId: widget.course.id,
-        canSubmit: _isEnrolled,
+      courseId: widget.course.id,
+      canSubmit: _isEnrolled,
       onSubmit: (review) {
         setState(() {
           _reviews.insert(0, review);
