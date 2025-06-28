@@ -143,7 +143,7 @@ print('Thông tin người dùng: ${_currentUser?.username ?? 'Người dùng �
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildRatingOverview(widget.ratingStats),
+            // _buildRatingOverview(widget.ratingStats),
             const SizedBox(height: 8),
            _myReview != null
                 ?  Column(
@@ -306,9 +306,9 @@ print('Thông tin người dùng: ${_currentUser?.username ?? 'Người dùng �
     );
   }
 
-  Widget _buildRatingOverview(Map<String, dynamic>? stats) {
-    return Text("Tổng quan đánh giá: ⭐⭐⭐⭐☆ (giả lập)");
-  }
+  // Widget _buildRatingOverview(Map<String, dynamic>? stats) {
+  //   return Text("Tổng quan đánh giá: ⭐⭐⭐⭐☆ (giả lập)");
+  // }
 
   String _formatTimeAgo(String dateTimeString) {
     try {

@@ -792,6 +792,7 @@ Future<void> _checkEnrollmentStatus() async {
     );
   }
 
+ // ...existing code...
   Widget _buildPriceAndActions() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -839,78 +840,60 @@ Future<void> _checkEnrollmentStatus() async {
               ),
             ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed:
-                      _isEnrolled
-                          ? null
-                          : () async {
-                            // Lấy userId (từ AuthHelper hoặc storage)
-                            final userId =
-                                await AuthHelper.getUserIdFromToken();
-                            final courseId = widget.course.id;
+          // Nút Đăng ký ngay chiếm toàn bộ chiều ngang
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed:
+                  _isEnrolled
+                      ? null
+                      : () async {
+                        final userId = await AuthHelper.getUserIdFromToken();
+                        final courseId = widget.course.id;
 
-                            final success = await EnrollmentApi.enrollCourse(
-                              courseId: courseId,
-                              userId: userId ?? 0,
-                            );
+                        final success = await EnrollmentApi.enrollCourse(
+                          courseId: courseId,
+                          userId: userId ?? 0,
+                        );
 
-                            if (success) {
-                              setState(() {
-                                _isEnrolled = true;
-                              });
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Đăng ký khóa học thành công!'),
-                                ),
-                              );
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Đăng ký thất bại!')),
-                              );
-                            }
-                          },
-                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.purple[700],
-                    disabledBackgroundColor:
-                        Colors.green, // ép màu xanh khi disable
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: Text(
-                    _isEnrolled ? 'Đã đăng ký' : 'Đăng ký ngay',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
+                        if (success) {
+                          setState(() {
+                            _isEnrolled = true;
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Đăng ký khóa học thành công!'),
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Đăng ký thất bại!')),
+                          );
+                        }
+                      },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple[700],
+                disabledBackgroundColor: Colors.green,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              const SizedBox(width: 12),
-              OutlinedButton(
-                onPressed: () {},
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 16,
-                    horizontal: 24,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+              child: Text(
+                _isEnrolled ? 'Đã đăng ký' : 'Đăng ký ngay',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
-                child: Text('Thêm vào giỏ hàng'),
               ),
-            ],
+            ),
           ),
         ],
       ),
     );
   }
+  // ...existing code...
 
   int _calculateDiscountPercent(dynamic original, dynamic discounted) {
     try {
