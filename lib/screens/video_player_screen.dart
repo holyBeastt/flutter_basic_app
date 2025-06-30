@@ -6,6 +6,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import '../api/quiz_api.dart';
 import '../models/quiz_question.dart';
 import '../widgets/quiz_dialog.dart';
+import '../api/progress_api.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final String url;
@@ -29,6 +30,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Set<int> _triggeredQuizzes = {};
   bool _isQuizActive = false; // NEW: đánh dấu đang hiển thị quiz
 
+  static const _kSaveInterval = 15; // gửi progress mỗi 15 s
+  int _lastSavedSec = 0;
+  bool _isCompleted = false;
+
   @override
   void initState() {
     super.initState();
@@ -41,6 +46,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   void dispose() {
+    final last = player.state.position?.inSeconds ?? 0;
+    if (!_isCompleted && last > 0) {
+      unawaited(
+        ProgressApi.saveProgress(lessonId: widget.lessonId, seconds: last),
+      );
+    }
     _timer?.cancel();
     player.dispose();
     super.dispose();
@@ -63,10 +74,20 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       if (!player.state.playing || _isQuizActive) return;
 
       final pos = player.state.position;
-      if (pos == null) return;
+      final dur = player.state.duration; // ← NEW
+      if (pos == null || dur == null) return;
 
       final seconds = pos.inSeconds;
 
+      // ---------- PROGRESS : lưu định kỳ ----------
+      if (seconds - _lastSavedSec >= _kSaveInterval) {
+        _lastSavedSec = seconds;
+        unawaited(
+          ProgressApi.saveProgress(lessonId: widget.lessonId, seconds: seconds),
+        );
+      }
+
+      // Kiểm tra checkpoint để bật quiz
       for (var cp in _checkpoints) {
         final quizId = cp["quiz_id"] as int;
         final time = cp["time_in_video"] as int;
@@ -77,45 +98,22 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           break; // tránh kích hoạt nhiều quiz cùng tick
         }
       }
+
+      // ---------- PROGRESS : đánh dấu hoàn thành ----------
+      const tol = 3;
+      if (!_isCompleted &&
+          seconds >= dur.inSeconds - tol &&
+          _triggeredQuizzes.length == _checkpoints.length) {
+        _isCompleted = true;
+        unawaited(ProgressApi.markCompleted(widget.lessonId));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('🎉 Bạn đã hoàn thành bài học!')),
+          );
+        }
+      }
     });
   }
-
-  // void _pauseAndShowQuiz(int quizId) async {
-  //   _isQuizActive = true; // NEW
-  //   await player.pause();
-
-  //   try {
-  //     final response = await QuizApi.getQuizQuestions(quizId);
-  //     final questions = response.map((e) => QuizQuestion.fromJson(e)).toList();
-
-  //     final bool? passed = await showDialog<bool>(
-  //       context: context,
-  //       barrierDismissible: false,
-  //       builder: (_) => QuizDialog(questions: questions),
-  //     );
-
-  //     if (passed == true) {
-  //       // Đúng
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         const SnackBar(content: Text('✅ Chính xác! Tiếp tục video.')),
-  //       );
-  //       await player.play();
-  //     } else {
-  //       // Sai (hoặc đóng bất thường)
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         const SnackBar(content: Text('❌ Sai rồi! Video phát lại từ đầu.')),
-  //       );
-  //       _triggeredQuizzes.clear(); // Xóa hết để lần xem lại hiện đầy đủ
-  //       await player.seek(Duration.zero);
-  //       await player.play();
-  //     }
-  //   } catch (e) {
-  //     print('Error loading quiz questions: $e');
-  //     await player.play(); // fallback
-  //   } finally {
-  //     _isQuizActive = false; // NEW
-  //   }
-  // }
 
   void _pauseAndShowQuiz(int quizId) async {
     _isQuizActive = true;
