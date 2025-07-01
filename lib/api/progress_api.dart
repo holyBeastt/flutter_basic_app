@@ -10,12 +10,20 @@ class ProgressApi {
   static Future<void> saveProgress({
     required int lessonId,
     required int seconds,
+    required int userId,
   }) async {
     final url = Uri.parse('$baseUrl/api/v1/save-progress');
+    print(
+      'saveProgress: $url, lessonId: $lessonId, seconds: $seconds, userId: $userId',
+    );
     final res = await http.post(
       url,
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'lessonId': lessonId, 'seconds': seconds}),
+      body: jsonEncode({
+        'lessonId': lessonId,
+        'seconds': seconds,
+        'userId': userId,
+      }),
     );
 
     if (res.statusCode != 200) {
@@ -26,12 +34,12 @@ class ProgressApi {
   /// -------------------------------
   /// 2. Đánh dấu hoàn thành bài học
   /// -------------------------------
-  static Future<void> markCompleted(int lessonId) async {
+  static Future<void> markCompleted(int lessonId, int userId) async {
     final url = Uri.parse('$baseUrl/api/v1/progress/complete');
     final res = await http.post(
       url,
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'lessonId': lessonId}),
+      body: jsonEncode({'lessonId': lessonId, 'userId': userId}),
     );
 
     if (res.statusCode != 200) {
@@ -61,6 +69,7 @@ class ProgressApi {
 
   static Future<int?> getProgress(int lessonId, int userId) async {
     final url = Uri.parse('$baseUrl/api/v1/progress/$lessonId');
+    print('getProgress: $url, userId: $userId');
     final res = await http.get(
       url,
       headers: {

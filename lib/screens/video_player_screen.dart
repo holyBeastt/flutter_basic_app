@@ -26,6 +26,7 @@ class VideoPlayerScreen extends StatefulWidget {
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   late final Player player;
   late final VideoController controller;
+  int userId = 0;
 
   bool _progressRestored = false; // chặn seek nhiều lần
   StreamSubscription<Duration>? _durationSub; // hủy khi dispose
@@ -42,6 +43,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   void initState() {
     super.initState();
+    getUserData();
     player = Player();
     controller = VideoController(player);
 
@@ -61,9 +63,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _startTimeMonitoring();
   }
 
+  Future<void> getUserData() async {
+    // Lấy id người dùng
+    final id = await AuthHelper.getUserIdFromToken();
+    setState(() {
+      userId = id ?? 0;
+    });
+  }
+
   Future<void> _restoreProgress() async {
     try {
-      final userId = await AuthHelper.getUserIdFromToken();
       if (userId == null) return;
 
       final saved = await ProgressApi.getProgress(widget.lessonId, userId);
@@ -97,8 +106,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     // lưu vị trí cuối cùng nếu chưa hoàn thành
     final last = player.state.position?.inSeconds ?? 0;
     if (!_isCompleted && last > 0) {
+      print('Saving last position: $userId');
       unawaited(
-        ProgressApi.saveProgress(lessonId: widget.lessonId, seconds: last),
+        ProgressApi.saveProgress(
+          lessonId: widget.lessonId,
+          seconds: last,
+          userId: userId,
+        ),
       );
     }
 
@@ -128,7 +142,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         if (sec > _lastSavedSec) {
           _lastSavedSec = sec;
           unawaited(
-            ProgressApi.saveProgress(lessonId: widget.lessonId, seconds: sec),
+            ProgressApi.saveProgress(
+              lessonId: widget.lessonId,
+              seconds: sec,
+              userId: userId,
+            ),
           );
         }
       }
@@ -147,7 +165,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       if (seconds - _lastSavedSec >= _kSaveInterval) {
         _lastSavedSec = seconds;
         unawaited(
-          ProgressApi.saveProgress(lessonId: widget.lessonId, seconds: seconds),
+          ProgressApi.saveProgress(
+            lessonId: widget.lessonId,
+            seconds: seconds,
+            userId: userId,
+          ),
         );
       }
 
@@ -163,18 +185,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         }
       }
 
-      // Đánh dấu hoàn thành …
-      // if (!_isCompleted &&
-      //     seconds >= dur.inSeconds - tol &&
-      //     _triggeredQuizzes.length == _checkpoints.length) {
-      //   _isCompleted = true;
-      //   unawaited(ProgressApi.markCompleted(widget.lessonId));
-      //   if (mounted) {
-      //     ScaffoldMessenger.of(context).showSnackBar(
-      //       const SnackBar(content: Text('🎉 Bạn đã hoàn thành bài học!')),
-      //     );
-      //   }
-      // }
       const tol = 2;
       if (!_isCompleted &&
           dur.inSeconds > tol && // ⚠️ chặn lỗi vừa vào video đã hoàn thành
@@ -182,7 +192,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           (_checkpoints.isEmpty ||
               _triggeredQuizzes.length == _checkpoints.length)) {
         _isCompleted = true;
-        unawaited(ProgressApi.markCompleted(widget.lessonId));
+        unawaited(ProgressApi.markCompleted(widget.lessonId, userId));
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('🎉 Bạn đã hoàn thành bài học!')),
