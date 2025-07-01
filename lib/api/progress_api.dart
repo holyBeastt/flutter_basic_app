@@ -89,4 +89,16 @@ class ProgressApi {
 
     throw Exception('Failed to load progress: ${res.body}');
   }
+
+  static Future<Map<int, bool>> getAllProgressForUser(int userId) async {
+    final url = Uri.parse('$baseUrl/api/v1/progress-all/user/$userId');
+    final res = await http.get(url);
+
+    if (res.statusCode == 200) {
+      final raw = jsonDecode(res.body) as Map<String, dynamic>;
+      return raw.map((key, value) => MapEntry(int.parse(key), value as bool));
+    } else {
+      throw Exception('Lỗi lấy tiến độ');
+    }
+  }
 }

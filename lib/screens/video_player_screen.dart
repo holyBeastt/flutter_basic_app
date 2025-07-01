@@ -40,6 +40,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   int _lastSavedSec = 0;
   bool _isCompleted = false;
 
+  bool _hasPopped = false; // đặt ở đầu State
+
   @override
   void initState() {
     super.initState();
@@ -114,6 +116,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           userId: userId,
         ),
       );
+    }
+
+    // ✅ Đảm bảo trả kết quả về trước khi super.dispose()
+    if (!_hasPopped && Navigator.canPop(context)) {
+      _hasPopped = true; // tránh pop trùng
+      Navigator.pop(context, _isCompleted);
     }
 
     player.dispose();
@@ -193,6 +201,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               _triggeredQuizzes.length == _checkpoints.length)) {
         _isCompleted = true;
         unawaited(ProgressApi.markCompleted(widget.lessonId, userId));
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('🎉 Bạn đã hoàn thành bài học!')),
@@ -294,7 +303,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               left: 16,
               child: IconButton(
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
-                onPressed: () => Navigator.pop(context),
+                // onPressed: () => Navigator.pop(context),
+                onPressed: () {
+                  if (!_hasPopped) {
+                    _hasPopped = true;
+                    Navigator.pop(context, _isCompleted);
+                  }
+                },
               ),
             ),
           ],

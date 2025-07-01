@@ -15,6 +15,8 @@ class Lesson {
   final String? contentText;
   final String? contentType;
 
+  bool isCompleted;
+
   Lesson({
     required this.id,
     required this.title,
@@ -31,6 +33,8 @@ class Lesson {
     required this.orderIndex,
     this.contentText,
     required this.contentType,
+    // ✅ Khởi tạo mặc định là false
+    this.isCompleted = false,
   });
 
   factory Lesson.fromJson(Map<String, dynamic> json) {
@@ -55,6 +59,9 @@ class Lesson {
         orderIndex: _parseToInt(json['order_index']),
         contentText: json['content_text'],
         contentType: json['content_type'] ?? '',
+
+        // ✅ Không cần đọc từ JSON, ta sẽ gán sau bằng API progress
+        isCompleted: false,
       );
     } catch (e) {
       print('Error parsing Lesson: $e');

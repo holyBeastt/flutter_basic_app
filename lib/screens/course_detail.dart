@@ -1,4 +1,5 @@
 import 'package:android_basic/api/courses_api.dart';
+import 'package:android_basic/api/progress_api.dart';
 import 'package:android_basic/models/course.dart';
 import 'package:android_basic/models/review.dart';
 import 'package:android_basic/models/section.dart';
@@ -112,7 +113,10 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         _isCheckingPurchase = true;
       });
 
-      final purchaseResult = await EnrollmentApi.checkCourseAccess(userId, courseId);
+      final purchaseResult = await EnrollmentApi.checkCourseAccess(
+        userId,
+        courseId,
+      );
       if (purchaseResult['success']) {
         final purchaseData = purchaseResult['data'];
         setState(() {
@@ -227,6 +231,9 @@ class _CourseDetailPageState extends State<CourseDetailPage>
       final int courseId = widget.course.id; // 👈 Lấy từ Map course
       final sections = await CoursesApi.fetchSections(courseId);
 
+      // 👉 Gọi loadProgress trước khi setState
+      await _loadProgress(sections);
+
       setState(() {
         _sections = sections;
         _isLoadingSections = false;
@@ -237,6 +244,26 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     }
   }
 
+  Future<void> _loadProgress(List<Section> sections) async {
+    final userId = await AuthHelper.getUserIdFromToken(); // hoặc truyền sẵn
+    if (userId == null) return;
+
+    try {
+      final progressMap = await ProgressApi.getAllProgressForUser(userId);
+
+      // Gán isCompleted cho từng bài học
+      for (final section in sections) {
+        for (final lesson in section.lessons) {
+          lesson.isCompleted = progressMap[lesson.id] ?? false;
+        }
+      }
+
+      setState(() {}); // cập nhật giao diện
+    } catch (e) {
+      print('Lỗi load progress: $e');
+    }
+  }
+
   void _loadReviews() async {
     try {
       final int courseId = widget.course.id; // 👈 Lấy từ Map course
@@ -244,7 +271,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
       final reviews = await CoursesApi.fetchReviews(
         courseId,
       ); // Đảm bảo bạn có courseId ở widget
-print('Loaded ================${reviews.length}');
+      print('Loaded ================${reviews.length}');
       final stats = calculateRatingStats(reviews); // 👈 Gọi hàm tính thống kê
 
       setState(() {
@@ -552,7 +579,9 @@ print('Loaded ================${reviews.length}');
                                 _seekVideo(seekPosition);
                               },
                               activeColor: Colors.red,
-                              inactiveColor: Colors.white.withValues(alpha: 0.3),
+                              inactiveColor: Colors.white.withValues(
+                                alpha: 0.3,
+                              ),
                             ),
                           ),
                           Padding(
@@ -758,11 +787,11 @@ print('Loaded ================${reviews.length}');
   Widget _buildCourseHeader() {
     final title = widget.course.title ?? 'Tên khóa học';
     final subtitle = widget.course.subtitle ?? '';
-   final rating =
+    final rating =
         _ratingStats != null
             ? (_ratingStats!['average'] as double? ?? 0.0)
             : (widget.course.rating ?? 0.0).toDouble();
-  final reviewCount = _ratingStats != null ? _ratingStats!['total'] ?? 0 : 0;
+    final reviewCount = _ratingStats != null ? _ratingStats!['total'] ?? 0 : 0;
     final studentCount = widget.course.studentCount ?? 0;
     final userName = widget.course.userName ?? 'Giảng viên';
     final lastUpdated =
@@ -792,7 +821,7 @@ print('Loaded ================${reviews.length}');
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(width: 8),
-             Text(
+              Text(
                 '(${_formatNumber(reviewCount)} đánh giá)',
                 style: TextStyle(color: Colors.grey[600]),
               ),
@@ -845,7 +874,8 @@ print('Loaded ================${reviews.length}');
 
   Widget _buildPriceAndActions() {
     final bool isCourseFree = !_isCourseHasFee();
-    final bool canEnroll = isCourseFree ? !_isEnrolled : (!_isPurchased && !_isEnrolled);
+    final bool canEnroll =
+        isCourseFree ? !_isEnrolled : (!_isPurchased && !_isEnrolled);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -865,7 +895,9 @@ print('Loaded ================${reviews.length}');
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
-                  _formatCurrency(widget.course.discountPrice ?? widget.course.price),
+                  _formatCurrency(
+                    widget.course.discountPrice ?? widget.course.price,
+                  ),
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
@@ -873,7 +905,8 @@ print('Loaded ================${reviews.length}');
                   ),
                 ),
                 const SizedBox(width: 12),
-                if (widget.course.price != null && widget.course.discountPrice != null)
+                if (widget.course.price != null &&
+                    widget.course.discountPrice != null)
                   Text(
                     _formatCurrency(widget.course.price),
                     style: TextStyle(
@@ -885,7 +918,8 @@ print('Loaded ================${reviews.length}');
               ],
             ),
             const SizedBox(height: 4),
-            if (widget.course.discountPrice != null && widget.course.price != null)
+            if (widget.course.discountPrice != null &&
+                widget.course.price != null)
               Text(
                 '🔥 Giảm giá ${_calculateDiscountPercent(widget.course.price, widget.course.discountPrice)}%',
                 style: TextStyle(
@@ -923,9 +957,7 @@ print('Loaded ================${reviews.length}');
         onPressed: null,
         style: ElevatedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -949,9 +981,7 @@ print('Loaded ================${reviews.length}');
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.green,
           padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -978,9 +1008,7 @@ print('Loaded ================${reviews.length}');
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.purple[700],
           padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: Text(
           'Đăng ký miễn phí',
@@ -999,9 +1027,7 @@ print('Loaded ================${reviews.length}');
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.orange[700],
         padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -1069,10 +1095,8 @@ print('Loaded ================${reviews.length}');
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => PaymentScreen(
-          course: widget.course,
-          userId: userId,
-        ),
+        builder:
+            (context) => PaymentScreen(course: widget.course, userId: userId),
       ),
     );
 
@@ -1102,7 +1126,9 @@ print('Loaded ================${reviews.length}');
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Chúc mừng! Bạn đã thanh toán và đăng ký khóa học thành công'),
+              content: Text(
+                'Chúc mừng! Bạn đã thanh toán và đăng ký khóa học thành công',
+              ),
               backgroundColor: Colors.green,
               duration: Duration(seconds: 3),
             ),
@@ -1115,7 +1141,9 @@ print('Loaded ================${reviews.length}');
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Thanh toán thành công! Đang xử lý đăng ký khóa học...'),
+              content: Text(
+                'Thanh toán thành công! Đang xử lý đăng ký khóa học...',
+              ),
               backgroundColor: Colors.orange,
               action: SnackBarAction(
                 label: 'Thử lại',
@@ -1268,21 +1296,22 @@ print('Loaded ================${reviews.length}');
     }
 
     return Column(
-      children: outcomes
-          .map(
-            (outcome) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.check, color: Colors.green, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(outcome)),
-                ],
-              ),
-            ),
-          )
-          .toList(),
+      children:
+          outcomes
+              .map(
+                (outcome) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.check, color: Colors.green, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(outcome)),
+                    ],
+                  ),
+                ),
+              )
+              .toList(),
     );
   }
 
@@ -1307,21 +1336,22 @@ print('Loaded ================${reviews.length}');
     }
 
     return Column(
-      children: requirements
-          .map(
-            (req) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.circle, size: 6, color: Colors.grey[600]),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(req)),
-                ],
-              ),
-            ),
-          )
-          .toList(),
+      children:
+          requirements
+              .map(
+                (req) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.circle, size: 6, color: Colors.grey[600]),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(req)),
+                    ],
+                  ),
+                ),
+              )
+              .toList(),
     );
   }
 
@@ -1363,11 +1393,8 @@ print('Loaded ================${reviews.length}');
               .asMap()
               .entries
               .map(
-                (entry) => _buildChapterItem(
-                  entry.key + 1,
-                  entry.value,
-                  hasAccess,
-                ),
+                (entry) =>
+                    _buildChapterItem(entry.key + 1, entry.value, hasAccess),
               )
               .toList(),
         ],
@@ -1380,6 +1407,79 @@ print('Loaded ================${reviews.length}');
         enrolled.any((c) => c.id == courseId);
   }
 
+  // Widget _buildChapterItem(int index, Section section, bool hasAccess) {
+  //   return Column(
+  //     crossAxisAlignment: CrossAxisAlignment.start,
+  //     children: [
+  //       Text(
+  //         'Chương $index: ${section.title}',
+  //         style: const TextStyle(fontWeight: FontWeight.bold),
+  //       ),
+  //       ...section.lessons.map((lesson) {
+  //         final bool canWatch = hasAccess;
+
+  //         return Padding(
+  //           padding: const EdgeInsets.symmetric(vertical: 4),
+  //           child: InkWell(
+  //             onTap: () {
+  //               if (!canWatch) {
+  //                 ScaffoldMessenger.of(context).showSnackBar(
+  //                   const SnackBar(content: Text('Bạn cần đăng ký khóa học')),
+  //                 );
+  //                 return;
+  //               }
+
+  //               if (lesson.contentUrl?.isNotEmpty == true) {
+  //                 Navigator.push(
+  //                   context,
+  //                   MaterialPageRoute(
+  //                     builder:
+  //                         (_) => VideoPlayerScreen(
+  //                           url: lesson.contentUrl!,
+  //                           lessonId: lesson.id,
+  //                         ),
+  //                   ),
+  //                 );
+  //               } else {
+  //                 ScaffoldMessenger.of(context).showSnackBar(
+  //                   const SnackBar(content: Text('Không có video')),
+  //                 );
+  //               }
+  //             },
+  //             child: Opacity(
+  //               opacity: canWatch ? 1 : 0.4,
+  //               child: Row(
+  //                 children: [
+  //                   Icon(
+  //                     canWatch ? Icons.play_circle_outline : Icons.lock,
+  //                     size: 20,
+  //                     color: canWatch ? null : Colors.grey,
+  //                   ),
+  //                   const SizedBox(width: 8),
+  //                   Expanded(
+  //                     child: Text(
+  //                       lesson.title ?? 'Chưa có tiêu đề',
+  //                       style: TextStyle(
+  //                         color: canWatch ? null : Colors.grey,
+  //                         fontStyle: canWatch ? null : FontStyle.italic,
+  //                       ),
+  //                     ),
+  //                   ),
+  //                   Text(
+  //                     '${((lesson.duration ?? 0) / 60).toStringAsFixed(0)} phút',
+  //                     style: TextStyle(color: canWatch ? null : Colors.grey),
+  //                   ),
+  //                 ],
+  //               ),
+  //             ),
+  //           ),
+  //         );
+  //       }).toList(),
+  //       const SizedBox(height: 16),
+  //     ],
+  //   );
+  // }
+
   Widget _buildChapterItem(int index, Section section, bool hasAccess) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1388,30 +1488,61 @@ print('Loaded ================${reviews.length}');
           'Chương $index: ${section.title}',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        ...section.lessons.map((lesson) {
-          final bool canWatch = hasAccess;
+        const SizedBox(height: 8),
+
+        ...section.lessons.asMap().entries.map((entry) {
+          final i = entry.key;
+          final lesson = entry.value;
+
+          // ✅ Điều kiện xem: đã đăng ký và (bài đầu tiên hoặc bài trước đã hoàn thành)
+          final bool isPrevCompleted =
+              i == 0 || section.lessons[i - 1].isCompleted;
+          final bool canWatch = hasAccess && isPrevCompleted;
 
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: InkWell(
-              onTap: () {
-                if (!canWatch) {
+              onTap: () async {
+                if (!hasAccess) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Bạn cần đăng ký khóa học')),
                   );
                   return;
                 }
 
-                if (lesson.contentUrl?.isNotEmpty == true) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => VideoPlayerScreen(
-                        url: lesson.contentUrl!,
-                        lessonId: lesson.id,
-                      ),
+                if (!isPrevCompleted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Bạn cần hoàn thành bài học trước'),
                     ),
                   );
+                  return;
+                }
+
+                if (lesson.contentUrl?.isNotEmpty == true) {
+                  final bool? completed = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (_) => VideoPlayerScreen(
+                            url: lesson.contentUrl!,
+                            lessonId: lesson.id,
+                          ),
+                    ),
+                  );
+
+                  if (completed == true && mounted) {
+                    setState(() {
+                      lesson.isCompleted = true;
+
+                      // ✅ Mở khóa bài tiếp theo nếu có
+                      final nextIndex = i + 1;
+                      if (nextIndex < section.lessons.length) {
+                        // Gọi setState để UI cập nhật điều kiện i == 0 || bài trước đã completed
+                        section.lessons[nextIndex].isCompleted = false;
+                      }
+                    });
+                  }
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Không có video')),
@@ -1419,27 +1550,30 @@ print('Loaded ================${reviews.length}');
                 }
               },
               child: Opacity(
-                opacity: canWatch ? 1 : 0.4,
+                opacity: canWatch ? 1.0 : 0.4,
                 child: Row(
                   children: [
                     Icon(
                       canWatch ? Icons.play_circle_outline : Icons.lock,
                       size: 20,
-                      color: canWatch ? null : Colors.grey,
+                      color: canWatch ? Colors.blue : Colors.grey,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         lesson.title ?? 'Chưa có tiêu đề',
                         style: TextStyle(
-                          color: canWatch ? null : Colors.grey,
-                          fontStyle: canWatch ? null : FontStyle.italic,
+                          color: canWatch ? Colors.black : Colors.grey,
+                          fontStyle:
+                              canWatch ? FontStyle.normal : FontStyle.italic,
                         ),
                       ),
                     ),
                     Text(
                       '${((lesson.duration ?? 0) / 60).toStringAsFixed(0)} phút',
-                      style: TextStyle(color: canWatch ? null : Colors.grey),
+                      style: TextStyle(
+                        color: canWatch ? Colors.black : Colors.grey,
+                      ),
                     ),
                   ],
                 ),
@@ -1447,6 +1581,7 @@ print('Loaded ================${reviews.length}');
             ),
           );
         }).toList(),
+
         const SizedBox(height: 16),
       ],
     );
@@ -1463,7 +1598,7 @@ print('Loaded ================${reviews.length}');
         setState(() {
           _reviews.insert(0, review);
         });
-         _loadReviews();
+        _loadReviews();
       },
     );
   }
@@ -1522,9 +1657,10 @@ print('Loaded ================${reviews.length}');
         children: [
           CircleAvatar(
             radius: 40,
-            backgroundImage: teacher.avatarUrl != null
-                ? NetworkImage(teacher.avatarUrl!)
-                : null,
+            backgroundImage:
+                teacher.avatarUrl != null
+                    ? NetworkImage(teacher.avatarUrl!)
+                    : null,
             backgroundColor: Colors.grey[300],
             child:
                 teacher.avatarUrl == null ? Icon(Icons.person, size: 40) : null,
@@ -1567,12 +1703,13 @@ print('Loaded ================${reviews.length}');
             decoration: BoxDecoration(
               color: Colors.grey[300],
               borderRadius: BorderRadius.circular(4),
-              image: course.thumbnailUrl != null
-                  ? DecorationImage(
-                      image: NetworkImage(course.thumbnailUrl!),
-                      fit: BoxFit.cover,
-                    )
-                  : null,
+              image:
+                  course.thumbnailUrl != null
+                      ? DecorationImage(
+                        image: NetworkImage(course.thumbnailUrl!),
+                        fit: BoxFit.cover,
+                      )
+                      : null,
             ),
           ),
           const SizedBox(width: 12),
