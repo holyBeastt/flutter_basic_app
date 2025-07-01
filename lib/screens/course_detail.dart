@@ -5,8 +5,10 @@ import 'package:android_basic/models/section.dart';
 import 'package:android_basic/models/teacher_course.dart';
 import 'package:android_basic/models/user.dart';
 import 'package:android_basic/screens/video_player_screen.dart';
+import 'package:android_basic/screens/payment_screen.dart';
 import 'package:android_basic/widgets/review_panel.dart';
 import 'package:android_basic/helpers/auth_helper.dart';
+import 'package:android_basic/api/payment_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
@@ -47,6 +49,8 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   bool _isBuffering = true;
   bool _isVideoReady = false;
   bool _isFullScreen = false;
+  bool _isPurchased = false;
+  bool _isCheckingPurchase = false;
 
   // Dữ liệu bài học
   List<Section> _sections = [];
@@ -95,13 +99,42 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   Future<void> _checkEnrollmentStatus() async {
     final userId = await AuthHelper.getUserIdFromToken();
     final courseId = widget.course.id;
+
+    // Check enrollment status
     final enrolled = await EnrollmentApi.checkEnrolled(
       courseId: courseId,
       userId: userId ?? 0,
     );
+
+    // Check if course is purchased (for paid courses) - sử dụng EnrollmentApi thay vì PaymentApi
+    if (userId != null && _isCourseHasFee()) {
+      setState(() {
+        _isCheckingPurchase = true;
+      });
+
+      final purchaseResult = await EnrollmentApi.checkCourseAccess(userId, courseId);
+      if (purchaseResult['success']) {
+        final purchaseData = purchaseResult['data'];
+        setState(() {
+          _isPurchased = purchaseData['is_purchased'] ?? false;
+          _isCheckingPurchase = false;
+        });
+      } else {
+        setState(() {
+          _isCheckingPurchase = false;
+        });
+      }
+    }
+
     setState(() {
       _isEnrolled = enrolled;
     });
+  }
+
+  // Check if course has fee
+  bool _isCourseHasFee() {
+    final price = widget.course.discountPrice ?? widget.course.price ?? 0.0;
+    return price > 0;
   }
 
   Future<void> _initializeVideo(String videoUrl) async {
@@ -421,9 +454,9 @@ class _CourseDetailPageState extends State<CourseDetailPage>
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Colors.black.withOpacity(0.5),
+              Colors.black.withValues(alpha: 0.5),
               Colors.transparent,
-              Colors.black.withOpacity(0.8),
+              Colors.black.withValues(alpha: 0.8),
             ],
             stops: [0.0, 0.5, 1.0],
           ),
@@ -466,7 +499,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                   // Nút thoát fullscreen (X)
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.5),
+                      color: Colors.black.withValues(alpha: 0.5),
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(
@@ -519,7 +552,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                                 _seekVideo(seekPosition);
                               },
                               activeColor: Colors.red,
-                              inactiveColor: Colors.white.withOpacity(0.3),
+                              inactiveColor: Colors.white.withValues(alpha: 0.3),
                             ),
                           ),
                           Padding(
@@ -807,8 +840,10 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     );
   }
 
-  // ...existing code...
   Widget _buildPriceAndActions() {
+    final bool isCourseFree = !_isCourseHasFee();
+    final bool canEnroll = isCourseFree ? !_isEnrolled : (!_isPurchased && !_isEnrolled);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -821,95 +856,305 @@ class _CourseDetailPageState extends State<CourseDetailPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                _formatCurrency(widget.course.discountPrice),
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.red[600],
-                ),
-              ),
-              const SizedBox(width: 12),
-              if (widget.course.price != null)
+          // Hiển thị giá khóa học
+          if (_isCourseHasFee()) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
                 Text(
-                  _formatCurrency(widget.course.price),
+                  _formatCurrency(widget.course.discountPrice ?? widget.course.price),
                   style: TextStyle(
-                    fontSize: 18,
-                    decoration: TextDecoration.lineThrough,
-                    color: Colors.grey[600],
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red[600],
                   ),
                 ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          if (widget.course.discountPrice != null &&
-              widget.course.price != null)
+                const SizedBox(width: 12),
+                if (widget.course.price != null && widget.course.discountPrice != null)
+                  Text(
+                    _formatCurrency(widget.course.price),
+                    style: TextStyle(
+                      fontSize: 18,
+                      decoration: TextDecoration.lineThrough,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            if (widget.course.discountPrice != null && widget.course.price != null)
+              Text(
+                '🔥 Giảm giá ${_calculateDiscountPercent(widget.course.price, widget.course.discountPrice)}%',
+                style: TextStyle(
+                  color: Colors.red[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            const SizedBox(height: 16),
+          ] else ...[
+            // Khóa học miễn phí
             Text(
-              '🔥 Giảm giá ${_calculateDiscountPercent(widget.course.price, widget.course.discountPrice)}%',
+              'Miễn phí',
               style: TextStyle(
-                color: Colors.red[600],
-                fontWeight: FontWeight.w500,
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Colors.green[600],
               ),
             ),
-          const SizedBox(height: 16),
-          // Nút Đăng ký ngay chiếm toàn bộ chiều ngang
+            const SizedBox(height: 16),
+          ],
+
+          // Nút hành động
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton(
-              onPressed:
-                  _isEnrolled
-                      ? null
-                      : () async {
-                        final userId = await AuthHelper.getUserIdFromToken();
-                        final courseId = widget.course.id;
+            child: _buildActionButton(isCourseFree, canEnroll),
+          ),
+        ],
+      ),
+    );
+  }
 
-                        final success = await EnrollmentApi.enrollCourse(
-                          courseId: courseId,
-                          userId: userId ?? 0,
-                        );
+  Widget _buildActionButton(bool isCourseFree, bool canEnroll) {
+    if (_isCheckingPurchase) {
+      return ElevatedButton(
+        onPressed: null,
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Text('Đang kiểm tra...'),
+          ],
+        ),
+      );
+    }
 
-                        if (success) {
-                          setState(() {
-                            _isEnrolled = true;
-                          });
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Đăng ký khóa học thành công!'),
-                            ),
-                          );
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Đăng ký thất bại!')),
-                          );
-                        }
-                      },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple[700],
-                disabledBackgroundColor: Colors.green,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
+    // Đã đăng ký/mua khóa học
+    if (_isEnrolled || _isPurchased) {
+      return ElevatedButton(
+        onPressed: null,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle, color: Colors.white),
+            SizedBox(width: 8),
+            Text(
+              _isPurchased ? 'Đã mua khóa học' : 'Đã đăng ký',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
               ),
-              child: Text(
-                _isEnrolled ? 'Đã đăng ký' : 'Đăng ký ngay',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Khóa học miễn phí - nút đăng ký
+    if (isCourseFree) {
+      return ElevatedButton(
+        onPressed: _handleFreeEnrollment,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.purple[700],
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+        child: Text(
+          'Đăng ký miễn phí',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      );
+    }
+
+    // Khóa học có phí - nút thanh toán
+    return ElevatedButton(
+      onPressed: _handlePayment,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.orange[700],
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.payment, color: Colors.white),
+          SizedBox(width: 8),
+          Text(
+            'Thanh toán ${_formatCurrency(widget.course.discountPrice ?? widget.course.price)}',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
             ),
           ),
         ],
       ),
     );
   }
-  // ...existing code...
 
+  // Xử lý đăng ký khóa học miễn phí
+  Future<void> _handleFreeEnrollment() async {
+    final userId = await AuthHelper.getUserIdFromToken();
+    final courseId = widget.course.id;
+
+    final success = await EnrollmentApi.enrollCourse(
+      courseId: courseId,
+      userId: userId ?? 0,
+    );
+
+    if (success) {
+      setState(() {
+        _isEnrolled = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Đăng ký khóa học miễn phí thành công!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Đăng ký thất bại! Vui lòng thử lại.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // Xử lý thanh toán khóa học có phí
+  Future<void> _handlePayment() async {
+    final userId = await AuthHelper.getUserIdFromToken();
+
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Vui lòng đăng nhập để thanh toán'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Chuyển đến màn hình thanh toán
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PaymentScreen(
+          course: widget.course,
+          userId: userId,
+        ),
+      ),
+    );
+
+    // Nếu thanh toán thành công, tự động enroll user vào khóa học
+    if (result == true) {
+      // Hiển thị loading state
+      setState(() {
+        _isCheckingPurchase = true;
+      });
+
+      try {
+        // Gọi API enroll để đăng ký user vào khóa học - đây là phần chính thay thế backend payment
+        final enrollSuccess = await EnrollmentApi.enrollCourse(
+          courseId: widget.course.id,
+          userId: userId,
+        );
+
+        if (enrollSuccess) {
+          // Cập nhật trạng thái local - không cần PaymentApi nữa
+          EnrollmentApi.markCourseEnrolled(userId, widget.course.id);
+
+          setState(() {
+            _isPurchased = true;
+            _isEnrolled = true;
+            _isCheckingPurchase = false;
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Chúc mừng! Bạn đã thanh toán và đăng ký khóa học thành công'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        } else {
+          // Thanh toán thành công nhưng enroll thất bại
+          setState(() {
+            _isCheckingPurchase = false;
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Thanh toán thành công! Đang xử lý đăng ký khóa học...'),
+              backgroundColor: Colors.orange,
+              action: SnackBarAction(
+                label: 'Thử lại',
+                onPressed: () async {
+                  // Cho phép user thử enroll lại
+                  final retryEnroll = await EnrollmentApi.enrollCourse(
+                    courseId: widget.course.id,
+                    userId: userId,
+                  );
+                  if (retryEnroll) {
+                    setState(() {
+                      _isEnrolled = true;
+                      _isPurchased = true;
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Đăng ký khóa học thành công!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                },
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        setState(() {
+          _isCheckingPurchase = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Thanh toán thành công! Lỗi khi đăng ký: $e'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
+  }
+
+  // Missing methods
   int _calculateDiscountPercent(dynamic original, dynamic discounted) {
     try {
       final double originalPrice = double.parse(original.toString());
@@ -918,7 +1163,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
       if (originalPrice <= 0 || discountedPrice >= originalPrice) return 0;
 
       final percent = ((originalPrice - discountedPrice) / originalPrice) * 100;
-      return percent.round(); // làm tròn %
+      return percent.round();
     } catch (e) {
       return 0;
     }
@@ -976,7 +1221,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
             controller: _tabController,
             children: [
               _buildOverviewTab(),
-              _buildContentTab(_sections, courseHasAccess), // 👈 truyền đúng
+              _buildContentTab(_sections, courseHasAccess),
               _buildReviewsTab(),
               _buildInstructorTab(),
             ],
@@ -1020,22 +1265,21 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     }
 
     return Column(
-      children:
-          outcomes
-              .map(
-                (outcome) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.check, color: Colors.green, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(outcome)),
-                    ],
-                  ),
-                ),
-              )
-              .toList(),
+      children: outcomes
+          .map(
+            (outcome) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.check, color: Colors.green, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(outcome)),
+                ],
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 
@@ -1060,26 +1304,24 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     }
 
     return Column(
-      children:
-          requirements
-              .map(
-                (req) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.circle, size: 6, color: Colors.grey[600]),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(req)),
-                    ],
-                  ),
-                ),
-              )
-              .toList(),
+      children: requirements
+          .map(
+            (req) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.circle, size: 6, color: Colors.grey[600]),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(req)),
+                ],
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 
-  // Phần content
   Widget _buildContentTab(List<Section> sections, bool hasAccess) {
     int totalLessons = sections.fold(0, (sum, s) => sum + s.lessons.length);
     int totalDuration = sections.fold(
@@ -1121,7 +1363,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                 (entry) => _buildChapterItem(
                   entry.key + 1,
                   entry.value,
-                  hasAccess, // ✅ truyền vào từng chương
+                  hasAccess,
                 ),
               )
               .toList(),
@@ -1144,8 +1386,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         ...section.lessons.map((lesson) {
-          final bool canWatch =
-              hasAccess; // hoặc hasAccess || (lesson.isPreview ?? false);
+          final bool canWatch = hasAccess;
 
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
@@ -1162,11 +1403,10 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder:
-                          (_) => VideoPlayerScreen(
-                            url: lesson.contentUrl!,
-                            lessonId: lesson.id,
-                          ),
+                      builder: (_) => VideoPlayerScreen(
+                        url: lesson.contentUrl!,
+                        lessonId: lesson.id,
+                      ),
                     ),
                   );
                 } else {
@@ -1209,85 +1449,6 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     );
   }
 
-  // Widget _buildChapterItem(int index, Section section, bool hasAccess) {
-  //   return Column(
-  //     crossAxisAlignment: CrossAxisAlignment.start,
-  //     children: [
-  //       Text(
-  //         'Chương $index: ${section.title}',
-  //         style: const TextStyle(fontWeight: FontWeight.bold),
-  //       ),
-  //       ...section.lessons.map((lesson) {
-  //         // final bool isFree = lesson.isPreview ?? false; // nếu có bài xem thử
-  //         final bool canWatch = hasAccess || false;
-
-  //         return Padding(
-  //           padding: const EdgeInsets.symmetric(vertical: 4),
-  //           child: InkWell(
-  //             onTap: () async {
-  //               if (!canWatch) {
-  //                 ScaffoldMessenger.of(context).showSnackBar(
-  //                   const SnackBar(
-  //                     content: Text('Bạn cần đăng ký khóa học để xem video'),
-  //                   ),
-  //                 );
-  //                 return;
-  //               }
-
-  //               if (lesson.contentUrl?.isNotEmpty == true) {
-  //                 Navigator.push(
-  //                   context,
-  //                   MaterialPageRoute(
-  //                     builder:
-  //                         (_) => VideoPlayerScreen(
-  //                           url: lesson.contentUrl!,
-  //                           lessonId: lesson.id,
-  //                         ),
-  //                   ),
-  //                 );
-  //               } else {
-  //                 ScaffoldMessenger.of(context).showSnackBar(
-  //                   const SnackBar(
-  //                     content: Text('Không có video cho bài học này'),
-  //                   ),
-  //                 );
-  //               }
-  //             },
-  //             // 🔒 Khoá giao diện nếu không được xem
-  //             child: Opacity(
-  //               opacity: canWatch ? 1.0 : 0.4, // làm mờ
-  //               child: Row(
-  //                 children: [
-  //                   Icon(
-  //                     canWatch ? Icons.play_circle_outline : Icons.lock,
-  //                     size: 20,
-  //                     color: canWatch ? null : Colors.grey,
-  //                   ),
-  //                   const SizedBox(width: 8),
-  //                   Expanded(
-  //                     child: Text(
-  //                       lesson.title ?? 'Chưa có tiêu đề',
-  //                       style: TextStyle(
-  //                         color: canWatch ? null : Colors.grey,
-  //                         fontStyle: canWatch ? null : FontStyle.italic,
-  //                       ),
-  //                     ),
-  //                   ),
-  //                   Text(
-  //                     '${((lesson.duration ?? 0) / 60).toStringAsFixed(0)} phút',
-  //                     style: TextStyle(color: canWatch ? null : Colors.grey),
-  //                   ),
-  //                 ],
-  //               ),
-  //             ),
-  //           ),
-  //         );
-  //       }),
-  //       const SizedBox(height: 16),
-  //     ],
-  //   );
-  // }
-
   Widget _buildReviewsTab() {
     return ReviewPanel(
       reviews: _reviews,
@@ -1305,7 +1466,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
 
   Widget _buildInstructorTab() {
     return FutureBuilder<TeacherInfoResponse>(
-      future: _futureTeacherInfo, // <-- biến đã khởi tạo trong initState
+      future: _futureTeacherInfo,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -1323,7 +1484,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildInstructorInfo(teacher), // <-- truyền dữ liệu giảng viên
+              _buildInstructorInfo(teacher),
               const SizedBox(height: 24),
               _buildSectionTitle('Khóa học khác của giảng viên'),
               ...courses
@@ -1346,94 +1507,6 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     );
   }
 
-  Widget _buildRatingOverview(Map<String, dynamic> stats) {
-    final double averageRating = stats['average'];
-    final int totalReviews = stats['total'];
-    final List<int> distribution = List<int>.from(stats['distribution']);
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                averageRating.toStringAsFixed(1),
-                style: TextStyle(
-                  fontSize: 48,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.amber[700],
-                ),
-              ),
-              Row(
-                children: List.generate(
-                  5,
-                  (index) => Icon(
-                    index < averageRating.round()
-                        ? Icons.star
-                        : Icons.star_border,
-                    color: Colors.amber,
-                    size: 20,
-                  ),
-                ),
-              ),
-              Text('$totalReviews đánh giá'),
-            ],
-          ),
-          const SizedBox(width: 32),
-          Expanded(
-            child: Column(
-              children: List.generate(5, (index) {
-                final star = 5 - index;
-                final count = distribution[star - 1];
-                final percent = totalReviews > 0 ? count / totalReviews : 0.0;
-                final percentLabel = (percent * 100).toStringAsFixed(0);
-
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Row(
-                    children: [
-                      Text('$star'),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: LinearProgressIndicator(
-                          value: percent,
-                          backgroundColor: Colors.grey[300],
-                          valueColor: AlwaysStoppedAnimation(Colors.amber),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text('$percentLabel%'),
-                    ],
-                  ),
-                );
-              }),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatTimeAgo(String isoTime) {
-    final date = DateTime.tryParse(isoTime);
-    if (date == null) return '';
-
-    final now = DateTime.now();
-    final diff = now.difference(date);
-
-    if (diff.inDays >= 7) return '${(diff.inDays / 7).floor()} tuần trước';
-    if (diff.inDays > 0) return '${diff.inDays} ngày trước';
-    if (diff.inHours > 0) return '${diff.inHours} giờ trước';
-    if (diff.inMinutes > 0) return '${diff.inMinutes} phút trước';
-    return 'Vừa xong';
-  }
-
   Widget _buildInstructorInfo(User teacher) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1445,10 +1518,9 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         children: [
           CircleAvatar(
             radius: 40,
-            backgroundImage:
-                teacher.avatarUrl != null
-                    ? NetworkImage(teacher.avatarUrl!)
-                    : null,
+            backgroundImage: teacher.avatarUrl != null
+                ? NetworkImage(teacher.avatarUrl!)
+                : null,
             backgroundColor: Colors.grey[300],
             child:
                 teacher.avatarUrl == null ? Icon(Icons.person, size: 40) : null,
@@ -1467,14 +1539,6 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                 ),
                 Text(teacher.bio ?? 'Chức danh'),
                 const SizedBox(height: 8),
-                // Row(
-                //   children: [
-                //     const Icon(Icons.star, color: Colors.amber, size: 16),
-                //     Text(' ${teacher.rating ?? '4.9'} • '),
-                //     Text('${teacher.students ?? 0} học viên • '),
-                //     Text('${teacher.totalCourses ?? 0} khóa học'),
-                //   ],
-                // ),
               ],
             ),
           ),
@@ -1499,13 +1563,12 @@ class _CourseDetailPageState extends State<CourseDetailPage>
             decoration: BoxDecoration(
               color: Colors.grey[300],
               borderRadius: BorderRadius.circular(4),
-              image:
-                  course.thumbnailUrl != null
-                      ? DecorationImage(
-                        image: NetworkImage(course.thumbnailUrl!),
-                        fit: BoxFit.cover,
-                      )
-                      : null,
+              image: course.thumbnailUrl != null
+                  ? DecorationImage(
+                      image: NetworkImage(course.thumbnailUrl!),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
             ),
           ),
           const SizedBox(width: 12),
