@@ -244,7 +244,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
       final reviews = await CoursesApi.fetchReviews(
         courseId,
       ); // Đảm bảo bạn có courseId ở widget
-
+print('Loaded ================${reviews.length}');
       final stats = calculateRatingStats(reviews); // 👈 Gọi hàm tính thống kê
 
       setState(() {
@@ -758,8 +758,11 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   Widget _buildCourseHeader() {
     final title = widget.course.title ?? 'Tên khóa học';
     final subtitle = widget.course.subtitle ?? '';
-    final rating = (widget.course.rating ?? 0.0).toDouble();
-    final reviewCount = widget.course.reviewCount ?? 0;
+   final rating =
+        _ratingStats != null
+            ? (_ratingStats!['average'] as double? ?? 0.0)
+            : (widget.course.rating ?? 0.0).toDouble();
+  final reviewCount = _ratingStats != null ? _ratingStats!['total'] ?? 0 : 0;
     final studentCount = widget.course.studentCount ?? 0;
     final userName = widget.course.userName ?? 'Giảng viên';
     final lastUpdated =
@@ -789,7 +792,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(width: 8),
-              Text(
+             Text(
                 '(${_formatNumber(reviewCount)} đánh giá)',
                 style: TextStyle(color: Colors.grey[600]),
               ),
@@ -1460,6 +1463,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         setState(() {
           _reviews.insert(0, review);
         });
+         _loadReviews();
       },
     );
   }
