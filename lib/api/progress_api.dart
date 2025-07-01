@@ -58,4 +58,26 @@ class ProgressApi {
       throw Exception('Failed to load progress');
     }
   }
+
+  static Future<int?> getProgress(int lessonId, int userId) async {
+    final url = Uri.parse('$baseUrl/api/v1/progress/$lessonId');
+    final res = await http.get(
+      url,
+      headers: {
+        'user-id': '$userId', // 👈 gửi thủ công
+      },
+    );
+
+    if (res.statusCode == 200) {
+      final json = jsonDecode(res.body);
+      return json['seconds'] as int?;
+    }
+
+    if (res.statusCode == 404) {
+      // Chưa có tiến độ → trả về null
+      return null;
+    }
+
+    throw Exception('Failed to load progress: ${res.body}');
+  }
 }

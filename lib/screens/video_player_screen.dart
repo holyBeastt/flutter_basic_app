@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import '../helpers/auth_helper.dart';
 
 import '../api/quiz_api.dart';
 import '../models/quiz_question.dart';
@@ -25,6 +26,10 @@ class VideoPlayerScreen extends StatefulWidget {
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   late final Player player;
   late final VideoController controller;
+
+  bool _progressRestored = false; // chặn seek nhiều lần
+  StreamSubscription<Duration>? _durationSub; // hủy khi dispose
+
   Timer? _timer;
   List<Map<String, dynamic>> _checkpoints = [];
   Set<int> _triggeredQuizzes = {};
@@ -39,20 +44,64 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     super.initState();
     player = Player();
     controller = VideoController(player);
+
+    /// Bước 1: mở media
     player.open(Media(widget.url));
+
+    /// Bước 2: lắng nghe khi duration > 0 ⇒ player đã sẵn sàng
+    _durationSub = player.stream.duration.listen((d) async {
+      if (!_progressRestored && d > Duration.zero) {
+        _progressRestored = true;
+        await _restoreProgress();
+      }
+    });
+
+    /// Bước 3: lắng nghe khi player đã sẵn sàng
     _loadCheckpoints();
     _startTimeMonitoring();
   }
 
+  Future<void> _restoreProgress() async {
+    try {
+      final userId = await AuthHelper.getUserIdFromToken();
+      if (userId == null) return;
+
+      final saved = await ProgressApi.getProgress(widget.lessonId, userId);
+      if (saved != null && saved > 0) {
+        final duration = player.state.duration ?? Duration.zero;
+        final target = clampDuration(
+          Duration(seconds: saved),
+          Duration.zero,
+          duration > Duration.zero ? duration : Duration(seconds: saved),
+        );
+
+        debugPrint('Restoring to ${target.inSeconds}s');
+        await player.seek(target);
+      }
+    } catch (e) {
+      debugPrint('restore progress error: $e');
+    }
+  }
+
+  Duration clampDuration(Duration value, Duration min, Duration max) {
+    if (value < min) return min;
+    if (value > max) return max;
+    return value;
+  }
+
   @override
   void dispose() {
+    _durationSub?.cancel();
+    _timer?.cancel();
+
+    // lưu vị trí cuối cùng nếu chưa hoàn thành
     final last = player.state.position?.inSeconds ?? 0;
     if (!_isCompleted && last > 0) {
       unawaited(
         ProgressApi.saveProgress(lessonId: widget.lessonId, seconds: last),
       );
     }
-    _timer?.cancel();
+
     player.dispose();
     super.dispose();
   }
@@ -60,6 +109,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   void _loadCheckpoints() async {
     try {
       final data = await QuizApi.getCheckpointsByLesson(widget.lessonId);
+      if (!mounted) return; // tránh setState sau khi dispose
       setState(() {
         _checkpoints = data;
       });
@@ -70,16 +120,30 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   void _startTimeMonitoring() {
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      // 1. Bỏ qua nếu video đang pause hoặc đang show quiz
-      if (!player.state.playing || _isQuizActive) return;
+      final isPlaying = player.state.playing;
 
+      // 🔹 1. Nếu video đang PAUSE (và không phải do hiện quiz) ➜ lưu ngay lập tức
+      if (!isPlaying && !_isQuizActive) {
+        final sec = player.state.position?.inSeconds ?? 0;
+        if (sec > _lastSavedSec) {
+          _lastSavedSec = sec;
+          unawaited(
+            ProgressApi.saveProgress(lessonId: widget.lessonId, seconds: sec),
+          );
+        }
+      }
+
+      // 🔹 2. Sau khi đã xử lý lưu, nếu đang pause hoặc đang hiện quiz ➜ bỏ qua các bước còn lại
+      if (!isPlaying || _isQuizActive) return;
+
+      // ---------- (phần cũ giữ nguyên từ đây) ----------
       final pos = player.state.position;
-      final dur = player.state.duration; // ← NEW
+      final dur = player.state.duration;
       if (pos == null || dur == null) return;
 
       final seconds = pos.inSeconds;
 
-      // ---------- PROGRESS : lưu định kỳ ----------
+      // Lưu định kỳ mỗi 15 s
       if (seconds - _lastSavedSec >= _kSaveInterval) {
         _lastSavedSec = seconds;
         unawaited(
@@ -87,7 +151,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         );
       }
 
-      // Kiểm tra checkpoint để bật quiz
+      // Kiểm tra checkpoint để bật quiz …
       for (var cp in _checkpoints) {
         final quizId = cp["quiz_id"] as int;
         final time = cp["time_in_video"] as int;
@@ -95,11 +159,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         if (seconds >= time && !_triggeredQuizzes.contains(quizId)) {
           _triggeredQuizzes.add(quizId);
           _pauseAndShowQuiz(quizId);
-          break; // tránh kích hoạt nhiều quiz cùng tick
+          break;
         }
       }
 
-      // ---------- PROGRESS : đánh dấu hoàn thành ----------
+      // Đánh dấu hoàn thành …
       const tol = 3;
       if (!_isCompleted &&
           seconds >= dur.inSeconds - tol &&
