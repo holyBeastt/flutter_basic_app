@@ -164,10 +164,23 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       }
 
       // Đánh dấu hoàn thành …
-      const tol = 3;
+      // if (!_isCompleted &&
+      //     seconds >= dur.inSeconds - tol &&
+      //     _triggeredQuizzes.length == _checkpoints.length) {
+      //   _isCompleted = true;
+      //   unawaited(ProgressApi.markCompleted(widget.lessonId));
+      //   if (mounted) {
+      //     ScaffoldMessenger.of(context).showSnackBar(
+      //       const SnackBar(content: Text('🎉 Bạn đã hoàn thành bài học!')),
+      //     );
+      //   }
+      // }
+      const tol = 2;
       if (!_isCompleted &&
+          dur.inSeconds > tol && // ⚠️ chặn lỗi vừa vào video đã hoàn thành
           seconds >= dur.inSeconds - tol &&
-          _triggeredQuizzes.length == _checkpoints.length) {
+          (_checkpoints.isEmpty ||
+              _triggeredQuizzes.length == _checkpoints.length)) {
         _isCompleted = true;
         unawaited(ProgressApi.markCompleted(widget.lessonId));
         if (mounted) {
