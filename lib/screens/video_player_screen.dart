@@ -86,6 +86,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           duration > Duration.zero ? duration : Duration(seconds: saved),
         );
 
+        _markPassedQuizzesUpTo(saved); // ← thêm dòng này
+
         debugPrint('Restoring to ${target.inSeconds}s');
         await player.seek(target);
       }
@@ -135,8 +137,23 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       setState(() {
         _checkpoints = data;
       });
+
+      if (_progressRestored) {
+        final sec = player.state.position?.inSeconds ?? 0;
+        _markPassedQuizzesUpTo(sec);
+      }
     } catch (e) {
       print("Error loading checkpoints: $e");
+    }
+  }
+
+  void _markPassedQuizzesUpTo(int seconds) {
+    for (final cp in _checkpoints) {
+      final quizId = cp['quiz_id'] as int;
+      final time = cp['time_in_video'] as int;
+      if (time <= seconds) {
+        _triggeredQuizzes.add(quizId);
+      }
     }
   }
 
