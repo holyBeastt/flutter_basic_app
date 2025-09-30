@@ -953,7 +953,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     );
   }
 
-  Widget _buildActionButton(bool isCourseFree, bool canEnroll) {
+ Widget _buildActionButton(bool isCourseFree, bool canEnroll) {
     if (_isCheckingPurchase) {
       return ElevatedButton(
         onPressed: null,
@@ -977,12 +977,12 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     }
 
     // Đã đăng ký/mua khóa học
-    if (_isEnrolled || _isPurchased) {
+   if (_isEnrolled || _isPurchased) {
       return ElevatedButton(
         onPressed: null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.green,
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          backgroundColor: Colors.green, // Màu xanh
+          padding: EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: Row(
@@ -991,7 +991,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
             Icon(Icons.check_circle, color: Colors.white),
             SizedBox(width: 8),
             Text(
-              _isPurchased ? 'Đã mua khóa học' : 'Đã đăng ký',
+              'Đã mua',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -1107,6 +1107,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
       // Hiển thị loading state
       setState(() {
         _isCheckingPurchase = true;
+        
       });
 
       try {

@@ -4,6 +4,7 @@ import '../models/payment.dart';
 import '../config/server.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class PaymentApi {
   // Simulate payment processing delay
   static Future<void> _simulateDelay() async {
@@ -41,6 +42,7 @@ class PaymentApi {
       };
     }
   }
+
   // Thanh toán bằng momo
   static Future<Map<String, dynamic>> createMomoPayment({
     required double amount,
@@ -63,9 +65,18 @@ class PaymentApi {
     return jsonDecode(response.body);
   }
 
-  
+  static Future<Map<String, dynamic>> checkMomoStatus(String orderId) async {
+    final res = await http.get(
+      Uri.parse('${apiUrl}/api/momo/check-status?orderId=$orderId'),
+    );
+    return jsonDecode(res.body);
+  }
+
   // Process payment (simulate payment gateway)
-  static Future<Map<String, dynamic>> processPayment(int paymentId, String paymentMethod) async {
+  static Future<Map<String, dynamic>> processPayment(
+    int paymentId,
+    String paymentMethod,
+  ) async {
     try {
       await _simulateDelay();
 
@@ -87,10 +98,7 @@ class PaymentApi {
         return {
           'success': false,
           'message': 'Payment processing failed. Please try again.',
-          'data': {
-            'payment_id': paymentId,
-            'status': PaymentStatus.failed,
-          },
+          'data': {'payment_id': paymentId, 'status': PaymentStatus.failed},
         };
       }
     } catch (e) {
@@ -126,7 +134,8 @@ class PaymentApi {
       // Simulate fetching payment data
       final payment = {
         'id': paymentId,
-        'created_at': DateTime.now().subtract(Duration(minutes: 5)).toIso8601String(),
+        'created_at':
+            DateTime.now().subtract(Duration(minutes: 5)).toIso8601String(),
         'user_id': 1,
         'course_id': 1,
         'amount': 299.99,
@@ -163,7 +172,8 @@ class PaymentApi {
       final payments = [
         {
           'id': 1,
-          'created_at': DateTime.now().subtract(Duration(days: 1)).toIso8601String(),
+          'created_at':
+              DateTime.now().subtract(Duration(days: 1)).toIso8601String(),
           'user_id': userId,
           'course_id': 1,
           'amount': 299.99,
@@ -172,8 +182,10 @@ class PaymentApi {
           'payment_method': PaymentMethod.creditCard,
           'transaction_id': _generateTransactionId(),
           'status': PaymentStatus.completed,
-          'payment_date': DateTime.now().subtract(Duration(days: 1)).toIso8601String(),
-          'completed_at': DateTime.now().subtract(Duration(days: 1)).toIso8601String(),
+          'payment_date':
+              DateTime.now().subtract(Duration(days: 1)).toIso8601String(),
+          'completed_at':
+              DateTime.now().subtract(Duration(days: 1)).toIso8601String(),
           'refunded_at': null,
         },
       ];
@@ -193,7 +205,10 @@ class PaymentApi {
   }
 
   // Check if user has purchased a course
-  static Future<Map<String, dynamic>> checkCoursePurchase(int userId, int courseId) async {
+  static Future<Map<String, dynamic>> checkCoursePurchase(
+    int userId,
+    int courseId,
+  ) async {
     try {
       await _simulateDelay();
 
@@ -206,7 +221,10 @@ class PaymentApi {
         'message': 'Course purchase status checked',
         'data': {
           'is_purchased': isPurchased,
-          'purchase_date': isPurchased ? DateTime.now().subtract(Duration(days: 7)).toIso8601String() : null,
+          'purchase_date':
+              isPurchased
+                  ? DateTime.now().subtract(Duration(days: 7)).toIso8601String()
+                  : null,
         },
       };
     } catch (e) {
@@ -219,7 +237,10 @@ class PaymentApi {
   }
 
   // Calculate course price with discount
-  static Map<String, dynamic> calculateCoursePrice(double originalPrice, double? discountPercentage) {
+  static Map<String, dynamic> calculateCoursePrice(
+    double originalPrice,
+    double? discountPercentage,
+  ) {
     final discount = discountPercentage ?? 0;
     final discountAmount = originalPrice * (discount / 100);
     final finalPrice = originalPrice - discountAmount;
@@ -254,7 +275,10 @@ class PaymentApi {
   }
 
   // Refund payment (simulate)
-  static Future<Map<String, dynamic>> refundPayment(int paymentId, String reason) async {
+  static Future<Map<String, dynamic>> refundPayment(
+    int paymentId,
+    String reason,
+  ) async {
     try {
       await _simulateDelay();
 
@@ -280,11 +304,7 @@ class PaymentApi {
         };
       }
     } catch (e) {
-      return {
-        'success': false,
-        'message': 'Refund error: $e',
-        'data': null,
-      };
+      return {'success': false, 'message': 'Refund error: $e', 'data': null};
     }
   }
 }

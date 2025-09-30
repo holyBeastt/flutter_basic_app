@@ -5,15 +5,15 @@ import '../api/payment_api.dart';
 import '../widgets/custom_button.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'dart:async';
+
 class PaymentScreen extends StatefulWidget {
   final Course course;
   final int userId;
 
-  const PaymentScreen({
-    Key? key,
-    required this.course,
-    required this.userId,
-  }) : super(key: key);
+  const PaymentScreen({Key? key, required this.course, required this.userId})
+    : super(key: key);
 
   @override
   State<PaymentScreen> createState() => _PaymentScreenState();
@@ -23,6 +23,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String selectedPaymentMethod = PaymentMethod.creditCard;
   bool isProcessing = false;
   bool showCardForm = true;
+  String? momoQRData;
+  String? momoOrderId;
+  Timer? _pollingTimer;
 
   // Card form controllers
   final TextEditingController cardNumberController = TextEditingController();
@@ -32,6 +35,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   @override
   void dispose() {
+    _pollingTimer?.cancel();
     cardNumberController.dispose();
     expiryController.dispose();
     cvvController.dispose();
@@ -47,24 +51,35 @@ class _PaymentScreenState extends State<PaymentScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Thanh toán khóa học'),
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text('Thanh toán khóa học')),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildCourseInfo(),
-            SizedBox(height: 24),
+            const SizedBox(height: 24),
             _buildPriceBreakdown(),
-            SizedBox(height: 24),
+            const SizedBox(height: 24),
             _buildPaymentMethods(),
-            SizedBox(height: 24),
+            const SizedBox(height: 24),
             if (showCardForm) _buildPaymentForm(),
-            SizedBox(height: 32),
+            const SizedBox(height: 32),
             _buildPaymentButton(),
+            // Hiển thị QR MoMo nếu chọn MoMo và đã nhận được dữ liệu QR
+            if (selectedPaymentMethod == PaymentMethod.momo &&
+                momoQRData != null) ...[
+              const SizedBox(height: 20),
+              Center(child: QrImageView(data: momoQRData!, size: 220)),
+              const SizedBox(height: 10),
+              Center(
+                child: Text(
+                  'Quét mã này bằng app MoMo để thanh toán',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -74,7 +89,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Widget _buildCourseInfo() {
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Row(
           children: [
             ClipRRect(
@@ -89,32 +104,29 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     width: 80,
                     height: 60,
                     color: Colors.grey[300],
-                    child: Icon(Icons.image),
+                    child: const Icon(Icons.image),
                   );
                 },
               ),
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     widget.course.title ?? '',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Text(
                     widget.course.userName ?? '',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 14,
-                    ),
+                    style: TextStyle(color: Colors.grey[600], fontSize: 14),
                   ),
                 ],
               ),
@@ -128,56 +140,51 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Widget _buildPriceBreakdown() {
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Chi tiết thanh toán',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Giá gốc:'),
+                const Text('Giá gốc:'),
                 Text(
                   '${originalPrice.toStringAsFixed(0)}đ',
-                  style: discountAmount > 0
-                      ? TextStyle(
-                          decoration: TextDecoration.lineThrough,
-                          color: Colors.grey,
-                        )
-                      : null,
+                  style:
+                      discountAmount > 0
+                          ? const TextStyle(
+                            decoration: TextDecoration.lineThrough,
+                            color: Colors.grey,
+                          )
+                          : null,
                 ),
               ],
             ),
             if (discountAmount > 0) ...[
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Giảm giá:'),
+                  const Text('Giảm giá:'),
                   Text(
                     '-${discountAmount.toStringAsFixed(0)}đ',
-                    style: TextStyle(color: Colors.green),
+                    style: const TextStyle(color: Colors.green),
                   ),
                 ],
               ),
             ],
-            Divider(height: 24),
+            const Divider(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
+                const Text(
                   'Tổng cộng:',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 Text(
                   '${finalPrice.toStringAsFixed(0)}đ',
@@ -198,18 +205,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Widget _buildPaymentMethods() {
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Phương thức thanh toán',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             _buildPaymentMethodOption(
               PaymentMethod.creditCard,
               'Thẻ tín dụng',
@@ -242,20 +246,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Widget _buildPaymentMethodOption(String method, String title, IconData icon) {
-    final isSelected = selectedPaymentMethod == method;
     return RadioListTile<String>(
       value: method,
       groupValue: selectedPaymentMethod,
       onChanged: (value) {
         setState(() {
           selectedPaymentMethod = value!;
-          showCardForm = method == PaymentMethod.creditCard || method == PaymentMethod.debitCard;
+          showCardForm =
+              method == PaymentMethod.creditCard ||
+              method == PaymentMethod.debitCard;
         });
       },
       title: Row(
         children: [
           Icon(icon, size: 20),
-          SizedBox(width: 12),
+          const SizedBox(width: 12),
           Text(title),
         ],
       ),
@@ -266,34 +271,31 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Widget _buildPaymentForm() {
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Thông tin thẻ',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             TextFormField(
               controller: cardNumberController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Số thẻ',
                 prefixIcon: Icon(Icons.credit_card),
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
                   child: TextFormField(
                     controller: expiryController,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'MM/YY',
                       prefixIcon: Icon(Icons.calendar_today),
                       border: OutlineInputBorder(),
@@ -301,11 +303,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     keyboardType: TextInputType.number,
                   ),
                 ),
-                SizedBox(width: 16),
+                const SizedBox(width: 16),
                 Expanded(
                   child: TextFormField(
                     controller: cvvController,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'CVV',
                       prefixIcon: Icon(Icons.lock),
                       border: OutlineInputBorder(),
@@ -316,10 +318,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 ),
               ],
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             TextFormField(
               controller: nameController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Tên chủ thẻ',
                 prefixIcon: Icon(Icons.person),
                 border: OutlineInputBorder(),
@@ -337,106 +339,124 @@ class _PaymentScreenState extends State<PaymentScreen> {
       child: ElevatedButton(
         onPressed: isProcessing ? null : _processPayment,
         style: ElevatedButton.styleFrom(
-          padding: EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: 16),
           backgroundColor: Theme.of(context).primaryColor,
         ),
-        child: isProcessing
-            ? Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+        child:
+            isProcessing
+                ? Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
                     ),
+                    const SizedBox(width: 12),
+                    const Text('Đang xử lý...'),
+                  ],
+                )
+                : Text(
+                  'Thanh toán ${finalPrice.toStringAsFixed(0)}đ',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
-                  SizedBox(width: 12),
-                  Text('Đang xử lý...'),
-                ],
-              )
-            : Text(
-                'Thanh toán ${finalPrice.toStringAsFixed(0)}đ',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
                 ),
-              ),
       ),
     );
   }
 
+  Future<void> _processPayment() async {
+    String urlNgrok = dotenv.env['URL_NGROK'] ?? '';
+    if (!_validateForm()) return;
 
-
-Future<void> _processPayment() async {
-  String urlNgrok = dotenv.env['URL_NGROK']??'';
-  if (!_validateForm()) return;
-
-  setState(() {
-    isProcessing = true;
-  });
-
-  try {
-    // Nếu chọn MoMo thì xử lý riêng
-    if (selectedPaymentMethod == PaymentMethod.momo) {
-      // Gọi API backend để lấy link payUrl MoMo (hiện mã QR)
-      final response = await PaymentApi.createMomoPayment(
-        amount: finalPrice,
-        orderId: '${widget.userId}_${widget.course.id}_${DateTime.now().millisecondsSinceEpoch}', // hoặc sinh mã đơn hàng riêng
-        orderInfo: "Thanh toán khoá học ${widget.course.title}",
-        returnUrl: "https://chatgpt.com/c/68dbdd3f-78cc-832c-b369-292087e12318", // deep link về app của bạn
-        notifyUrl: "${urlNgrok}/api/momo/webhook"
-      );
-      if (response['success']) {
-        final payUrl = response['payUrl'];
-        if (payUrl != null && await canLaunchUrl(Uri.parse(payUrl))) {
-          await launchUrl(Uri.parse(payUrl)); // Chuyển sang web MoMo, hiện mã QR
-        } else {
-          _showErrorDialog('Không mở được trang MoMo!');
-        }
-      } else {
-        _showErrorDialog(response['message'] ?? 'Lỗi khi tạo đơn MoMo');
-      }
-    } else {
-      // Xử lý các phương thức khác như cũ
-      final payment = Payment(
-        userId: widget.userId,
-        courseId: widget.course.id,
-        amount: finalPrice,
-        originalPrice: originalPrice,
-        discountAmount: discountAmount,
-        paymentMethod: selectedPaymentMethod,
-        status: PaymentStatus.pending,
-      );
-
-      final createResult = await PaymentApi.createPayment(payment);
-
-      if (createResult['success']) {
-        final paymentData = createResult['data'];
-        final paymentId = paymentData['id'];
-
-        // Process payment
-        final processResult = await PaymentApi.processPayment(paymentId, selectedPaymentMethod);
-
-        if (processResult['success']) {
-          _showSuccessDialog();
-        } else {
-          _showErrorDialog(processResult['message']);
-        }
-      } else {
-        _showErrorDialog(createResult['message']);
-      }
-    }
-  } catch (e) {
-    _showErrorDialog('Đã xảy ra lỗi: $e');
-  } finally {
     setState(() {
-      isProcessing = false;
+      isProcessing = true;
+    });
+
+    try {
+      // Nếu chọn MoMo thì xử lý riêng
+      if (selectedPaymentMethod == PaymentMethod.momo) {
+        String orderId =
+            '${widget.userId}_${widget.course.id}_${DateTime.now().millisecondsSinceEpoch}';
+        final response = await PaymentApi.createMomoPayment(
+          amount: finalPrice,
+          orderId: orderId,
+          orderInfo: "Thanh toán khoá học ${widget.course.title}",
+          returnUrl:
+              "https://your-app.com/return", // truyền URL của bạn nếu cần
+          notifyUrl: "$urlNgrok/api/momo/webhook",
+        );
+        if (response['success'] && response['qrData'] != null) {
+          setState(() {
+            momoQRData = response['qrData'];
+            momoOrderId = response['orderId'] ?? orderId;
+          });
+          _startPollingPaymentStatus(momoOrderId!);
+        } else {
+          _showErrorDialog(response['message'] ?? 'Lỗi khi tạo đơn MoMo');
+        }
+        setState(() {
+          isProcessing = false; // Dừng loading sau khi lấy QR
+        });
+        return;
+      } else {
+        // Xử lý các phương thức khác như cũ
+        final payment = Payment(
+          userId: widget.userId,
+          courseId: widget.course.id,
+          amount: finalPrice,
+          originalPrice: originalPrice,
+          discountAmount: discountAmount,
+          paymentMethod: selectedPaymentMethod,
+          status: PaymentStatus.pending,
+        );
+
+        final createResult = await PaymentApi.createPayment(payment);
+
+        if (createResult['success']) {
+          final paymentData = createResult['data'];
+          final paymentId = paymentData['id'];
+
+          // Process payment
+          final processResult = await PaymentApi.processPayment(
+            paymentId,
+            selectedPaymentMethod,
+          );
+
+          if (processResult['success']) {
+            _showSuccessDialog();
+          } else {
+            _showErrorDialog(processResult['message']);
+          }
+        } else {
+          _showErrorDialog(createResult['message']);
+        }
+      }
+    } catch (e) {
+      _showErrorDialog('Đã xảy ra lỗi: $e');
+    } finally {
+      setState(() {
+        isProcessing = false;
+      });
+    }
+  }
+
+  void _startPollingPaymentStatus(String orderId) {
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(Duration(seconds: 5), (timer) async {
+      final response = await PaymentApi.checkMomoStatus(orderId);
+      if (response['success'] && response['paid'] == true) {
+        _pollingTimer?.cancel();
+        _showSuccessDialog();
+      }
     });
   }
-}
 
   bool _validateForm() {
     if (showCardForm) {
@@ -455,49 +475,49 @@ Future<void> _processPayment() async {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: Text('Thanh toán thành công!'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.check_circle,
-              color: Colors.green,
-              size: 64,
+      builder:
+          (context) => AlertDialog(
+            title: Text('Thanh toán thành công!'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.check_circle, color: Colors.green, size: 64),
+                SizedBox(height: 16),
+                Text(
+                  'Bạn đã đăng ký thành công khóa học "${widget.course.title}"',
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
-            SizedBox(height: 16),
-            Text(
-              'Bạn đã đăng ký thành công khóa học "${widget.course.title}"',
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop(); // Close dialog
-              Navigator.of(context).pop(true); // Return to previous screen with success
-            },
-            child: Text('Đóng'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop(); // đóng dialog
+                  Navigator.of(
+                    context,
+                  ).pop(true); // quay lại màn trước và trả về true
+                },
+                child: Text('Đóng'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Thanh toán thất bại'),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text('Thử lại'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Thanh toán thất bại'),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Thử lại'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 }
