@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'dart:math';
 import '../models/payment.dart';
 import '../config/server.dart';
-
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 class PaymentApi {
   // Simulate payment processing delay
   static Future<void> _simulateDelay() async {
@@ -12,7 +13,7 @@ class PaymentApi {
   // Static storage để mô phỏng database (chỉ để demo)
   static final Map<String, bool> _purchasedCourses = {};
   static final List<Map<String, dynamic>> _paymentHistory = [];
-
+  static String apiUrl = dotenv.env['URL_NGROK'] ?? '';
   // Create a new payment
   static Future<Map<String, dynamic>> createPayment(Payment payment) async {
     try {
@@ -40,7 +41,29 @@ class PaymentApi {
       };
     }
   }
+  // Thanh toán bằng momo
+  static Future<Map<String, dynamic>> createMomoPayment({
+    required double amount,
+    required String orderId,
+    required String orderInfo,
+    required String returnUrl,
+    required String notifyUrl,
+  }) async {
+    final response = await http.post(
+      Uri.parse('${apiUrl}/api/momo/create-payment'),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "amount": amount,
+        "orderId": orderId,
+        "orderInfo": orderInfo,
+        "returnUrl": returnUrl,
+        "notifyUrl": notifyUrl,
+      }),
+    );
+    return jsonDecode(response.body);
+  }
 
+  
   // Process payment (simulate payment gateway)
   static Future<Map<String, dynamic>> processPayment(int paymentId, String paymentMethod) async {
     try {

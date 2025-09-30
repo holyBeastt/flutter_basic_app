@@ -17,7 +17,9 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:android_basic/api/enrollment_api.dart';
 import 'package:intl/intl.dart'; // import để dùng NumberFormat
 import 'dart:convert';
-
+import 'package:uni_links/uni_links.dart';
+import 'dart:async';
+import 'dart:io' show Platform;
 // class CourseDetailPage extends StatefulWidget {
 //   final Map<String, dynamic> course;
 
@@ -85,7 +87,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     _futureTeacherInfo = CoursesApi.fetchTeacherInfo(teacherId);
     _checkEnrollmentStatus();
 
-    getPersonalCourses();
+    getPersonalCourses(); 
   }
 
   Future<void> getPersonalCourses() async {

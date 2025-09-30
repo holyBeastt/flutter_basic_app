@@ -3,7 +3,8 @@ import '../models/course.dart';
 import '../models/payment.dart';
 import '../api/payment_api.dart';
 import '../widgets/custom_button.dart';
-
+import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 class PaymentScreen extends StatefulWidget {
   final Course course;
   final int userId;
@@ -367,15 +368,39 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  Future<void> _processPayment() async {
-    if (!_validateForm()) return;
 
-    setState(() {
-      isProcessing = true;
-    });
 
-    try {
-      // Create payment record
+Future<void> _processPayment() async {
+  String urlNgrok = dotenv.env['URL_NGROK']??'';
+  if (!_validateForm()) return;
+
+  setState(() {
+    isProcessing = true;
+  });
+
+  try {
+    // Nếu chọn MoMo thì xử lý riêng
+    if (selectedPaymentMethod == PaymentMethod.momo) {
+      // Gọi API backend để lấy link payUrl MoMo (hiện mã QR)
+      final response = await PaymentApi.createMomoPayment(
+        amount: finalPrice,
+        orderId: '${widget.userId}_${widget.course.id}_${DateTime.now().millisecondsSinceEpoch}', // hoặc sinh mã đơn hàng riêng
+        orderInfo: "Thanh toán khoá học ${widget.course.title}",
+        returnUrl: "https://chatgpt.com/c/68dbdd3f-78cc-832c-b369-292087e12318", // deep link về app của bạn
+        notifyUrl: "${urlNgrok}/api/momo/webhook"
+      );
+      if (response['success']) {
+        final payUrl = response['payUrl'];
+        if (payUrl != null && await canLaunchUrl(Uri.parse(payUrl))) {
+          await launchUrl(Uri.parse(payUrl)); // Chuyển sang web MoMo, hiện mã QR
+        } else {
+          _showErrorDialog('Không mở được trang MoMo!');
+        }
+      } else {
+        _showErrorDialog(response['message'] ?? 'Lỗi khi tạo đơn MoMo');
+      }
+    } else {
+      // Xử lý các phương thức khác như cũ
       final payment = Payment(
         userId: widget.userId,
         courseId: widget.course.id,
@@ -403,14 +428,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
       } else {
         _showErrorDialog(createResult['message']);
       }
-    } catch (e) {
-      _showErrorDialog('Đã xảy ra lỗi: $e');
-    } finally {
-      setState(() {
-        isProcessing = false;
-      });
     }
+  } catch (e) {
+    _showErrorDialog('Đã xảy ra lỗi: $e');
+  } finally {
+    setState(() {
+      isProcessing = false;
+    });
   }
+}
 
   bool _validateForm() {
     if (showCardForm) {
