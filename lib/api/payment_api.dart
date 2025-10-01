@@ -50,12 +50,16 @@ class PaymentApi {
     required String orderInfo,
     required String returnUrl,
     required String notifyUrl,
+    required int user_id,     // đổi sang int
+    required int course_id,   // đổi sang int
   }) async {
     final response = await http.post(
       Uri.parse('${apiUrl}/api/momo/create-payment'),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
         "amount": amount,
+        "user_id": user_id,
+        "course_id": course_id,
         "orderId": orderId,
         "orderInfo": orderInfo,
         "returnUrl": returnUrl,
@@ -65,11 +69,30 @@ class PaymentApi {
     return jsonDecode(response.body);
   }
 
-  static Future<Map<String, dynamic>> checkMomoStatus(String orderId) async {
+static Future<Map<String, dynamic>> checkMomoStatus(String orderId) async {
     final res = await http.get(
-      Uri.parse('${apiUrl}/api/momo/check-status?orderId=$orderId'),
+      Uri.parse('${baseUrl}/api/momo/check-status?orderId=$orderId'),
     );
-    return jsonDecode(res.body);
+    try {
+      // Kiểm tra status code và content-type
+      if (res.statusCode == 200 &&
+          res.headers['content-type']?.contains('application/json') == true) {
+        return jsonDecode(res.body);
+      } else {
+        // Debug: In ra response nếu không phải JSON
+        print('API ERROR: ${res.statusCode}');
+        print('Response: ${res.body}');
+        return {
+          'success': false,
+          'message': 'Kết nối thất bại hoặc server trả về dữ liệu không hợp lệ',
+        };
+      }
+    } catch (e) {
+      // Nếu lỗi khi parse JSON
+      print('Lỗi khi đọc JSON từ server: $e');
+      print('Response: ${res.body}');
+      return {'success': false, 'message': 'Lỗi khi xử lý dữ liệu từ server'};
+    }
   }
 
   // Process payment (simulate payment gateway)

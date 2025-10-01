@@ -384,19 +384,25 @@ class _PaymentScreenState extends State<PaymentScreen> {
       if (selectedPaymentMethod == PaymentMethod.momo) {
         String orderId =
             '${widget.userId}_${widget.course.id}_${DateTime.now().millisecondsSinceEpoch}';
+             print('Trước khi gọi createMomoPayment');
         final response = await PaymentApi.createMomoPayment(
+          user_id: widget.userId,
+          course_id: widget.course.id,
           amount: finalPrice,
           orderId: orderId,
           orderInfo: "Thanh toán khoá học ${widget.course.title}",
           returnUrl:
               "https://your-app.com/return", // truyền URL của bạn nếu cần
           notifyUrl: "$urlNgrok/api/momo/webhook",
+
         );
+        print('===> Create MoMo payment response: $response');
         if (response['success'] && response['qrData'] != null) {
           setState(() {
             momoQRData = response['qrData'];
             momoOrderId = response['orderId'] ?? orderId;
           });
+          print('===> Đã nhận QR data, bắt đầu polling status: $momoOrderId');
           _startPollingPaymentStatus(momoOrderId!);
         } else {
           _showErrorDialog(response['message'] ?? 'Lỗi khi tạo đơn MoMo');
@@ -447,11 +453,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
-  void _startPollingPaymentStatus(String orderId) {
+void _startPollingPaymentStatus(String orderId) {
+  print('===> Bắt đầu polling status cho orderId: $orderId');
     _pollingTimer?.cancel();
     _pollingTimer = Timer.periodic(Duration(seconds: 5), (timer) async {
       final response = await PaymentApi.checkMomoStatus(orderId);
+      print('===> Polling response: $response'); // In log ra toàn bộ response
+
       if (response['success'] && response['paid'] == true) {
+        print('===> Status PAID, chuyển trang');
         _pollingTimer?.cancel();
         _showSuccessDialog();
       }
@@ -471,7 +481,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return true;
   }
 
-  void _showSuccessDialog() {
+void _showSuccessDialog() {
+    // Đợi 1 giây để user nhìn thấy dialog, sau đó tự động đóng
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -489,19 +500,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 ),
               ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop(); // đóng dialog
-                  Navigator.of(
-                    context,
-                  ).pop(true); // quay lại màn trước và trả về true
-                },
-                child: Text('Đóng'),
-              ),
-            ],
           ),
     );
+
+    // Đóng dialog và quay về sau 1.5 giây
+    Future.delayed(Duration(seconds: 1), () {
+      Navigator.of(context, rootNavigator: true).pop(); // đóng dialog
+      Navigator.of(
+        context,
+      ).pop(true); // quay về trang trước (CourseDetail), trả về true
+    });
   }
 
   void _showErrorDialog(String message) {

@@ -988,14 +988,14 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.check_circle, color: Colors.white),
+            Icon(Icons.check_circle, color: const Color.fromARGB(255, 20, 129, 24)),
             SizedBox(width: 8),
             Text(
               'Đã mua',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: const Color.fromARGB(255, 12, 156, 9),
               ),
             ),
           ],
