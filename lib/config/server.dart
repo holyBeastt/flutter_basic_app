@@ -1,6 +1,8 @@
-const String host = '192.168.1.142';
+const String host = '192.168.0.101';
 
 // '172.16.11.8';
 const String port = '3000';
 
-const String baseUrl = 'https://app-hoc-tap.onrender.com';
+// const String baseUrl = 'https://app-hoc-tap.onrender.com';
+
+const String baseUrl = 'http://$host:$port';

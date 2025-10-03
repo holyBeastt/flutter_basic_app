@@ -5,12 +5,12 @@ import 'package:android_basic/screens/home_screen.dart';
 import 'package:android_basic/screens/signup_screen.dart';
 import 'package:android_basic/widgets/custom_button.dart';
 import 'package:android_basic/widgets/custom_widgets.dart';
+import 'package:android_basic/widgets/simple_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import '../config/server.dart';
 
-import 'package:awesome_dialog/awesome_dialog.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -23,8 +23,18 @@ class _LoginScreenState extends State<LoginScreen> {
   final usernameController = TextEditingController();
   final passwordController = TextEditingController();
   static final _storage = const FlutterSecureStorage();
+  bool isLoading = false;
 
   void handleLogin() async {
+    if (usernameController.text.trim().isEmpty || passwordController.text.trim().isEmpty) {
+      SimpleToast.showError(context, 'Vui lòng nhập đầy đủ thông tin!');
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
     final url = Uri.parse('$baseUrl/api/auth/user/login');
 
     final body = jsonEncode({
@@ -45,24 +55,38 @@ class _LoginScreenState extends State<LoginScreen> {
         final token = data['token'];
         final user = data['user'];
 
-        // ?['username'] ?? 'Ẩn danh';
-
         // ✅ Lưu token sau khi đăng nhập
         await _storage.write(key: 'jwt_token', value: token);
 
         // Lưu id, họ tên user
         await _storage.write(key: 'user', value: jsonEncode(user));
-        // Chuyển hướng sang màn hình chính
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => HomeScreen()),
-        );
+        
+        // Hiển thị thông báo thành công
+        SimpleToast.showSuccess(context, 'Đăng nhập thành công! Chào mừng bạn quay trở lại!');
+        
+        // Chuyển màn hình sau 1.5 giây
+        Future.delayed(Duration(milliseconds: 1500), () {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => HomeScreen()),
+          );
+        });
       } else {
-        print("Lỗi: ${response.statusCode}");
-        print("Body: ${response.body}");
+        final errorData = jsonDecode(response.body);
+        String errorMessage = 'Đăng nhập thất bại!';
+        
+        if (errorData['message'] != null) {
+          errorMessage = errorData['message'];
+        }
+        
+        SimpleToast.showError(context, errorMessage);
       }
     } catch (e) {
-      print("Đã xảy ra lỗi: $e");
+      SimpleToast.showError(context, 'Không thể kết nối đến server. Vui lòng thử lại!');
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
     }
   }
 
@@ -140,9 +164,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     SizedBox(height: 30),
                     CustomButton(
-                      text: "Sign in",
+                      text: isLoading ? "Đang đăng nhập..." : "Sign in",
                       isLarge: true,
-                      onPressed: handleLogin,
+                      onPressed: isLoading ? null : handleLogin,
                     ),
                     SizedBox(height: 40),
                     InkWell(
@@ -161,26 +185,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                    ),
-                    SizedBox(height: 50),
-                    Text(
-                      "Or continue with",
-                      style: body.copyWith(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: primary,
-                      ),
-                    ),
-                    SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SocialButton(iconPath: "assets/google_icon.png"),
-                        SizedBox(width: 10),
-                        SocialButton(iconPath: "assets/facebook_icon.png"),
-                        SizedBox(width: 10),
-                        SocialButton(iconPath: "assets/apple_icon.png"),
-                      ],
                     ),
                   ],
                 ),

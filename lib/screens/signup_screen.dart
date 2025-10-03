@@ -4,6 +4,7 @@ import 'package:android_basic/constants.dart';
 import 'package:android_basic/screens/login_screen.dart';
 import 'package:android_basic/widgets/custom_button.dart';
 import 'package:android_basic/widgets/custom_widgets.dart';
+import 'package:android_basic/widgets/simple_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../config/server.dart';
@@ -16,17 +17,47 @@ class SignupScreen extends StatefulWidget {
 }
 
 class _SignupScreenState extends State<SignupScreen> {
-  final usernameController = TextEditingController();
+  final usernameAccController = TextEditingController(); // Tên tài khoản
   final passwordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
+  final usernameController = TextEditingController(); // Tên người dùng
+  String selectedSex = 'male'; // Giới tính mặc định
+  bool isLoading = false;
 
   void handleSingup() async {
+    // Kiểm tra thông tin đầu vào
+    if (usernameAccController.text.trim().isEmpty || 
+        passwordController.text.trim().isEmpty || 
+        confirmPasswordController.text.trim().isEmpty ||
+        usernameController.text.trim().isEmpty) {
+      SimpleToast.showError(context, 'Vui lòng nhập đầy đủ thông tin!');
+      return;
+    }
+
+    // Kiểm tra mật khẩu có khớp không
+    if (passwordController.text.trim() != confirmPasswordController.text.trim()) {
+      SimpleToast.showError(context, 'Mật khẩu xác nhận không khớp!');
+      return;
+    }
+
+    // Kiểm tra độ dài mật khẩu
+    if (passwordController.text.trim().length < 6) {
+      SimpleToast.showError(context, 'Mật khẩu phải có ít nhất 6 ký tự!');
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
     final url = Uri.parse('$baseUrl/api/auth/user/signup');
 
     final body = jsonEncode({
-      'username': usernameController.text.trim(),
+      'username_acc': usernameAccController.text.trim(),
       'password': passwordController.text.trim(),
       'confirmPassword': confirmPasswordController.text.trim(),
+      'username': usernameController.text.trim(),
+      'sex': selectedSex,
     });
 
     try {
@@ -36,24 +67,47 @@ class _SignupScreenState extends State<SignupScreen> {
         body: body,
       );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        print("Dữ liệu nhận được:");
-        print(data);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // Đăng ký thành công - hiển thị thông báo màu xanh
+        SimpleToast.showSuccess(context, 'Đăng ký thành công! Tài khoản của bạn đã được tạo thành công.');
+        
+        // Chuyển màn hình sau 2 giây
+        Future.delayed(Duration(milliseconds: 2000), () {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => LoginScreen()),
+          );
+        });
       } else {
-        print("Lỗi: ${response.statusCode}");
-        print("Body: ${response.body}");
+        // Đăng ký thất bại - hiển thị thông báo lỗi
+        try {
+          final errorData = json.decode(response.body);
+          String errorMessage = 'Đăng ký thất bại!';
+          
+          if (errorData['message'] != null) {
+            errorMessage = errorData['message'];
+          }
+          
+          SimpleToast.showError(context, errorMessage);
+        } catch (jsonError) {
+          SimpleToast.showError(context, 'Đăng ký thất bại! Lỗi: ${response.statusCode}');
+        }
       }
     } catch (e) {
-      print("Đã xảy ra lỗi: $e");
+      SimpleToast.showError(context, 'Không thể kết nối đến server. Vui lòng thử lại!');
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
     }
   }
 
   @override
   void dispose() {
-    usernameController.dispose();
+    usernameAccController.dispose();
     passwordController.dispose();
     confirmPasswordController.dispose();
+    usernameController.dispose();
     super.dispose();
   }
 
@@ -105,8 +159,47 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                     const SizedBox(height: 60),
                     CustomTextfield(
-                      hint: "Username",
+                      hint: "Tên tài khoản",
+                      controller: usernameAccController,
+                    ),
+                    const SizedBox(height: 20),
+                    CustomTextfield(
+                      hint: "Họ và tên",
                       controller: usernameController,
+                    ),
+                    const SizedBox(height: 20),
+                    // Dropdown cho giới tính
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: selectedSex,
+                          isExpanded: true,
+                          items: [
+                            DropdownMenuItem(
+                              value: 'male',
+                              child: Text('Nam'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'female',
+                              child: Text('Nữ'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'other',
+                              child: Text('Khác'),
+                            ),
+                          ],
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              selectedSex = newValue!;
+                            });
+                          },
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 20),
                     CustomTextfield(
@@ -123,9 +216,9 @@ class _SignupScreenState extends State<SignupScreen> {
                     const SizedBox(height: 25),
                     const SizedBox(height: 50),
                     CustomButton(
-                      text: "Sign up",
+                      text: isLoading ? "Đang đăng ký..." : "Sign up",
                       isLarge: true,
-                      onPressed: handleSingup,
+                      onPressed: isLoading ? null : handleSingup,
                     ),
                     const SizedBox(height: 40),
                     InkWell(
@@ -144,26 +237,6 @@ class _SignupScreenState extends State<SignupScreen> {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 50),
-                    Text(
-                      "Or continue with",
-                      style: body.copyWith(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: primary,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SocialButton(iconPath: "assets/google_icon.png"),
-                        const SizedBox(width: 10),
-                        SocialButton(iconPath: "assets/facebook_icon.png"),
-                        const SizedBox(width: 10),
-                        SocialButton(iconPath: "assets/apple_icon.png"),
-                      ],
                     ),
                   ],
                 ),
