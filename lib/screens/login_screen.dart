@@ -26,74 +26,35 @@ class _LoginScreenState extends State<LoginScreen> {
   bool isLoading = false;
 
   void handleLogin() async {
-    if (usernameController.text.trim().isEmpty ||
-        passwordController.text.trim().isEmpty) {
-      SimpleToast.showError(context, 'Vui lòng nhập đầy đủ thông tin!');
-      return;
-    }
+    final username = usernameController.text;
+    final password = passwordController.text;
 
     setState(() {
       isLoading = true;
     });
 
-    final url = Uri.parse('$baseUrl/api/auth/user/login');
+    final result = await AuthApi().login(username, password);
 
-    final body = jsonEncode({
-      'username': usernameController.text.trim(),
-      'password': passwordController.text.trim(),
+    setState(() {
+      isLoading = false;
     });
 
-    try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: body,
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-
-        final token = data['token'];
-        final user = data['user'];
-
-        // ✅ Lưu token sau khi đăng nhập
-        await _storage.write(key: 'jwt_token', value: token);
-
-        // Lưu id, họ tên user
-        await _storage.write(key: 'user', value: jsonEncode(user));
-
-        // Hiển thị thông báo thành công
-        SimpleToast.showSuccess(
-          context,
-          'Đăng nhập thành công! Chào mừng bạn quay trở lại!',
-        );
-
-        // Chuyển màn hình sau 1.5 giây
-        Future.delayed(Duration(milliseconds: 1500), () {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => HomeScreen()),
-          );
-        });
-      } else {
-        final errorData = jsonDecode(response.body);
-        String errorMessage = 'Đăng nhập thất bại!';
-
-        if (errorData['message'] != null) {
-          errorMessage = errorData['message'];
-        }
-
-        SimpleToast.showError(context, errorMessage);
-      }
-    } catch (e) {
-      SimpleToast.showError(
+    if (result['success'] == true) {
+      // Hiển thị toast
+      SimpleToast.showSuccess(
         context,
-        'Không thể kết nối đến server. Vui lòng thử lại!',
+        'Đăng nhập thành công! Chào mừng bạn quay trở lại!',
       );
-    } finally {
-      setState(() {
-        isLoading = false;
+
+      // Chuyển trang (không cần delay nếu bạn không muốn)
+      Future.delayed(Duration(milliseconds: 1000), () {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => HomeScreen()),
+        );
       });
+    } else {
+      SimpleToast.showError(context, result['message']);
     }
   }
 

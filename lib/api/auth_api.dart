@@ -76,6 +76,58 @@ class AuthApi {
     }
   }
 
+  // Thêm vào AuthApi
+  Future<Map<String, dynamic>> login(String username, String password) async {
+    if (username.trim().isEmpty || password.trim().isEmpty) {
+      return {'success': false, 'message': 'Vui lòng nhập đầy đủ thông tin!'};
+    }
+
+    final url = Uri.parse('$baseUrl/api/auth/user/login');
+
+    final body = jsonEncode({
+      'username': username.trim(),
+      'password': password.trim(),
+    });
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: body,
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        final token = data['token'];
+        final user = data['user'];
+
+        // Lưu token
+        await _storage.write(key: 'jwt_token', value: token);
+
+        // Lưu thông tin user
+        await _storage.write(key: 'user', value: jsonEncode(user));
+
+        return {
+          'success': true,
+          'message': 'Đăng nhập thành công!',
+          'data': data,
+        };
+      } else {
+        final errorData = jsonDecode(response.body);
+        return {
+          'success': false,
+          'message': errorData['message'] ?? 'Đăng nhập thất bại!',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Không thể kết nối đến server. Vui lòng thử lại!',
+      };
+    }
+  }
+
   // Hàm đăng xuất
   Future<void> logoutGoogle() async {
     await _googleSignIn.signOut();
