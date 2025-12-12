@@ -2,45 +2,34 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
-import '../config/server.dart';
+import '../config/server.dart'; // Đảm bảo baseUrl đúng: http://10.0.2.2:3000 (Android) hoặc localhost (iOS)
 
 class AuthApi {
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: ['email'],
-    // ⚠️ Lưu ý: Đây phải là WEB CLIENT ID lấy từ Google Cloud Console
-    // chứ không phải Client ID của Android hay iOS.
+    // Thay bằng Web Client ID của bạn
     serverClientId:
         '1002429183208-3r4dlqhen80lhiketnlq0neh59rp8b25.apps.googleusercontent.com',
   );
 
-  final _storage = const FlutterSecureStorage();
-
-  // Hàm đăng nhập Google
+  // --- 1. LOGIN VỚI GOOGLE ---
   Future<Map<String, dynamic>> loginWithGoogle() async {
     try {
-      // ✅ 1. SỬA QUAN TRỌNG: Đăng xuất phiên cũ trước để luôn hiện bảng chọn tài khoản
-      await _googleSignIn.signOut();
-
-      // 2. Trigger popup đăng nhập
+      await _googleSignIn.signOut(); // Logout phiên cũ
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
 
       if (googleUser == null) {
         return {'success': false, 'message': 'Đã hủy đăng nhập Google'};
       }
 
-      // 3. Lấy thông tin authentication
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
 
-      // ✅ 4. KIỂM TRA idToken (Thêm đoạn này để tránh lỗi gửi null lên server)
       if (googleAuth.idToken == null) {
-        return {
-          'success': false,
-          'message': 'Lỗi: Không lấy được ID Token từ Google',
-        };
+        return {'success': false, 'message': 'Lỗi: Không lấy được ID Token'};
       }
 
-      // 5. Gửi idToken sang Express Backend
+      // Gọi Server
       final response = await http.post(
         Uri.parse('$baseUrl/api/auth/user/google-login'),
         headers: {'Content-Type': 'application/json'},
@@ -52,31 +41,25 @@ class AuthApi {
         }),
       );
 
-      // Xử lý response từ server (đoạn này giữ nguyên logic cũ của bạn)
+      final data = jsonDecode(response.body);
+
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-
-        await _storage.write(key: 'jwt_token', value: data['token']);
-        await _storage.write(key: 'user', value: jsonEncode(data['user']));
-
+        // ✅ SỬA: Không lưu storage ở đây nữa.
+        // Chỉ trả data về để UI dùng AuthHelper lưu.
         return {'success': true, 'data': data};
       } else {
-        final data = jsonDecode(
-          response.body,
-        ); // Decode cẩn thận phòng khi body rỗng
         return {
           'success': false,
           'message': data['message'] ?? 'Lỗi xác thực Server',
         };
       }
     } catch (e) {
-      // In lỗi ra console để debug nếu cần
       print("Google Login Error: $e");
       return {'success': false, 'message': 'Lỗi kết nối: $e'};
     }
   }
 
-  // Thêm vào AuthApi
+  // --- 2. LOGIN THƯỜNG ---
   Future<Map<String, dynamic>> login(String username, String password) async {
     if (username.trim().isEmpty || password.trim().isEmpty) {
       return {'success': false, 'message': 'Vui lòng nhập đầy đủ thông tin!'};
@@ -84,7 +67,8 @@ class AuthApi {
 
     final url = Uri.parse('$baseUrl/api/auth/user/login');
 
-    final body = jsonEncode({
+    // Biến này là Request Body gửi đi
+    final requestBody = jsonEncode({
       'username': username.trim(),
       'password': password.trim(),
     });
@@ -93,44 +77,35 @@ class AuthApi {
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
-        body: body,
+        body: requestBody,
       );
 
+      // Biến này là Response Data nhận về (chứa Token)
+      final responseData = jsonDecode(response.body);
+
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-
-        final token = data['token'];
-        final user = data['user'];
-
-        // Lưu token
-        await _storage.write(key: 'jwt_token', value: token);
-
-        // Lưu thông tin user
-        await _storage.write(key: 'user', value: jsonEncode(user));
-
         return {
           'success': true,
           'message': 'Đăng nhập thành công!',
-          'data': data,
+          'data':
+              responseData, // ✅ SỬA QUAN TRỌNG: Trả về responseData, KHÔNG PHẢI requestBody
         };
       } else {
-        final errorData = jsonDecode(response.body);
         return {
           'success': false,
-          'message': errorData['message'] ?? 'Đăng nhập thất bại!',
+          'message':
+              responseData['message'] ??
+              responseData['error'] ??
+              'Đăng nhập thất bại!',
         };
       }
     } catch (e) {
-      return {
-        'success': false,
-        'message': 'Không thể kết nối đến server. Vui lòng thử lại!',
-      };
+      return {'success': false, 'message': 'Lỗi mạng: $e'};
     }
   }
 
-  // Hàm đăng xuất
+  // Logout Google (Giữ nguyên)
   Future<void> logoutGoogle() async {
     await _googleSignIn.signOut();
-    await _storage.deleteAll();
   }
 }

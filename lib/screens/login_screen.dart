@@ -11,6 +11,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import '../config/server.dart';
 import '../api/auth_api.dart';
+import '../helpers/auth_helper.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -24,64 +25,135 @@ class _LoginScreenState extends State<LoginScreen> {
   final passwordController = TextEditingController();
   static final _storage = const FlutterSecureStorage();
   bool isLoading = false;
+  final AuthApi _authApi = AuthApi(); // Khởi tạo service
 
+  // void handleLogin() async {
+  //   final username = usernameController.text;
+  //   final password = passwordController.text;
+
+  //   setState(() {
+  //     isLoading = true;
+  //   });
+
+  //   final result = await AuthApi().login(username, password);
+
+  //   setState(() {
+  //     isLoading = false;
+  //   });
+
+  //   if (result['success'] == true) {
+  //     // Hiển thị toast
+  //     SimpleToast.showSuccess(
+  //       context,
+  //       'Đăng nhập thành công! Chào mừng bạn quay trở lại!',
+  //     );
+
+  //     // Chuyển trang (không cần delay nếu bạn không muốn)
+  //     Future.delayed(Duration(milliseconds: 1000), () {
+  //       Navigator.pushReplacement(
+  //         context,
+  //         MaterialPageRoute(builder: (_) => HomeScreen()),
+  //       );
+  //     });
+  //   } else {
+  //     SimpleToast.showError(context, result['message']);
+  //   }
+  // }
+
+  // void handleGoogleLogin() async {
+  //   setState(() {
+  //     isLoading = true;
+  //   });
+
+  //   // Gọi hàm từ Service
+  //   final result = await _authApi.loginWithGoogle();
+
+  //   setState(() {
+  //     isLoading = false;
+  //   });
+
+  //   if (result['success']) {
+  //     SimpleToast.showSuccess(context, 'Đăng nhập Google thành công!');
+
+  //     Future.delayed(Duration(milliseconds: 1000), () {
+  //       Navigator.pushReplacement(
+  //         context,
+  //         MaterialPageRoute(builder: (context) => HomeScreen()),
+  //       );
+  //     });
+  //   } else {
+  //     SimpleToast.showError(context, result['message']);
+  //   }
+  // }
+
+  // 1. XỬ LÝ ĐĂNG NHẬP THƯỜNG
   void handleLogin() async {
     final username = usernameController.text;
     final password = passwordController.text;
 
-    setState(() {
-      isLoading = true;
-    });
+    setState(() => isLoading = true);
 
     final result = await AuthApi().login(username, password);
 
-    setState(() {
-      isLoading = false;
-    });
+    setState(() => isLoading = false);
 
     if (result['success'] == true) {
-      // Hiển thị toast
-      SimpleToast.showSuccess(
-        context,
-        'Đăng nhập thành công! Chào mừng bạn quay trở lại!',
-      );
+      // --- [BỔ SUNG QUAN TRỌNG] ---
+      // Lấy cục data từ kết quả trả về
+      final data = result['data'];
 
-      // Chuyển trang (không cần delay nếu bạn không muốn)
-      Future.delayed(Duration(milliseconds: 1000), () {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => HomeScreen()),
-        );
-      });
+      // Lưu vào Secure Storage thông qua AuthHelper
+      await AuthHelper.saveAuthData(
+        accessToken: data['accessToken'],
+        refreshToken: data['refreshToken'],
+        user: data['user'], // Map chứa id, username, avatar...
+      );
+      // ----------------------------
+      SimpleToast.showSuccess(context, 'hmm!');
+
+      if (!mounted) return; // Check mounted để tránh lỗi context khi async
+
+      SimpleToast.showSuccess(context, 'Đăng nhập thành công!');
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => HomeScreen()),
+      );
     } else {
+      if (!mounted) return;
       SimpleToast.showError(context, result['message']);
     }
   }
 
-  final AuthApi _authApi = AuthApi(); // Khởi tạo service
-
+  // 2. XỬ LÝ ĐĂNG NHẬP GOOGLE
   void handleGoogleLogin() async {
-    setState(() {
-      isLoading = true;
-    });
+    setState(() => isLoading = true);
 
-    // Gọi hàm từ Service
     final result = await _authApi.loginWithGoogle();
 
-    setState(() {
-      isLoading = false;
-    });
+    setState(() => isLoading = false);
 
-    if (result['success']) {
+    if (result['success'] == true) {
+      // --- [BỔ SUNG QUAN TRỌNG] ---
+      final data = result['data'];
+
+      await AuthHelper.saveAuthData(
+        accessToken: data['accessToken'],
+        refreshToken: data['refreshToken'],
+        user: data['user'],
+      );
+      // ----------------------------
+
+      if (!mounted) return;
+
       SimpleToast.showSuccess(context, 'Đăng nhập Google thành công!');
 
-      Future.delayed(Duration(milliseconds: 1000), () {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => HomeScreen()),
-        );
-      });
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => HomeScreen()),
+      );
     } else {
+      if (!mounted) return;
       SimpleToast.showError(context, result['message']);
     }
   }
