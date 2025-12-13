@@ -33,7 +33,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   Timer? _timer;
   List<Map<String, dynamic>> _checkpoints = [];
-  Set<int> _triggeredQuizzes = {};
+  Set<String> _triggeredCheckpoints = {}; // Thay đổi từ Set<int> thành Set<String> để track checkpoint cụ thể
   bool _isQuizActive = false; // NEW: đánh dấu đang hiển thị quiz
 
   static const _kSaveInterval = 15; // gửi progress mỗi 15 s
@@ -71,22 +71,27 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     setState(() {
       userId = id ?? 0;
     });
+
+    // Load checkpoints sau khi có userId
+    if (userId > 0) {
+      _loadCheckpoints();
+    }
   }
 
   Future<void> _restoreProgress() async {
     try {
-      if (userId == null) return;
+      if (userId == 0) return; // Sửa từ userId == null thành userId == 0
 
       final saved = await ProgressApi.getProgress(widget.lessonId, userId);
       if (saved != null && saved > 0) {
-        final duration = player.state.duration ?? Duration.zero;
+        final duration = player.state.duration;
         final target = clampDuration(
           Duration(seconds: saved),
           Duration.zero,
-          duration > Duration.zero ? duration : Duration(seconds: saved),
+          duration.inSeconds > 0 ? duration : Duration(seconds: saved),
         );
 
-        _markPassedQuizzesUpTo(saved); // ← thêm dòng này
+        _markPassedQuizzesUpTo(saved);
 
         debugPrint('Restoring to ${target.inSeconds}s');
         await player.seek(target);
@@ -107,8 +112,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _durationSub?.cancel();
     _timer?.cancel();
 
-    // lưu vị trí cuối cùng nếu chưa hoàn thành
-    final last = player.state.position?.inSeconds ?? 0;
+    // lưu vị trí cuối c��ng nếu chưa hoàn thành
+    final last = player.state.position.inSeconds;
     if (!_isCompleted && last > 0) {
       print('Saving last position: $userId');
       unawaited(
@@ -139,7 +144,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       });
 
       if (_progressRestored) {
-        final sec = player.state.position?.inSeconds ?? 0;
+        final sec = player.state.position.inSeconds;
         _markPassedQuizzesUpTo(sec);
       }
     } catch (e) {
@@ -151,8 +156,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     for (final cp in _checkpoints) {
       final quizId = cp['quiz_id'] as int;
       final time = cp['time_in_video'] as int;
+      final checkpointKey = "${time}_$quizId";
       if (time <= seconds) {
-        _triggeredQuizzes.add(quizId);
+        _triggeredCheckpoints.add(checkpointKey);
       }
     }
   }
@@ -163,7 +169,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
       // 🔹 1. Nếu video đang PAUSE (và không phải do hiện quiz) ➜ lưu ngay lập tức
       if (!isPlaying && !_isQuizActive) {
-        final sec = player.state.position?.inSeconds ?? 0;
+        final sec = player.state.position.inSeconds;
         if (sec > _lastSavedSec) {
           _lastSavedSec = sec;
           unawaited(
@@ -182,11 +188,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       // ---------- (phần cũ giữ nguyên từ đây) ----------
       final pos = player.state.position;
       final dur = player.state.duration;
-      if (pos == null || dur == null) return;
+
+      // Kiểm tra nếu player chưa sẵn sàng
+      if (dur.inSeconds <= 0) return;
 
       final seconds = pos.inSeconds;
 
-      // Lưu định kỳ mỗi 15 s
+      // Lưu định kỳ mỗi 15 s
       if (seconds - _lastSavedSec >= _kSaveInterval) {
         _lastSavedSec = seconds;
         unawaited(
@@ -202,9 +210,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       for (var cp in _checkpoints) {
         final quizId = cp["quiz_id"] as int;
         final time = cp["time_in_video"] as int;
+        final checkpointKey = "${time}_$quizId";
 
-        if (seconds >= time && !_triggeredQuizzes.contains(quizId)) {
-          _triggeredQuizzes.add(quizId);
+        if (seconds >= time && !_triggeredCheckpoints.contains(checkpointKey)) {
+          _triggeredCheckpoints.add(checkpointKey);
           _pauseAndShowQuiz(quizId);
           break;
         }
@@ -215,7 +224,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           dur.inSeconds > tol && // ⚠️ chặn lỗi vừa vào video đã hoàn thành
           seconds >= dur.inSeconds - tol &&
           (_checkpoints.isEmpty ||
-              _triggeredQuizzes.length == _checkpoints.length)) {
+              _triggeredCheckpoints.length == _checkpoints.length)) {
         _isCompleted = true;
         unawaited(ProgressApi.markCompleted(widget.lessonId, userId));
 
@@ -235,6 +244,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     try {
       final response = await QuizApi.getQuizQuestions(quizId);
       final questions = response.map((e) => QuizQuestion.fromJson(e)).toList();
+
+      if (questions.isEmpty) {
+        await player.play();
+        return;
+      }
 
       final bool? passed = await showDialog<bool>(
         context: context,
@@ -269,16 +283,24 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           ),
         );
 
-        _triggeredQuizzes.remove(quizId); // Cho phép quiz xuất hiện lại
+        _triggeredCheckpoints.remove("${_getCurrentCheckpointTime(quizId)}_$quizId");
         await player.seek(targetTime);
         await player.play();
       }
     } catch (e) {
-      print('Error loading quiz questions: $e');
+      print('Error loading quiz: $e');
       await player.play();
     } finally {
       _isQuizActive = false;
     }
+  }
+
+  int? _getCurrentCheckpointTime(int quizId) {
+    final current = _checkpoints.firstWhere(
+      (cp) => cp['quiz_id'] == quizId,
+      orElse: () => {},
+    );
+    return current.isEmpty ? null : current['time_in_video'] as int?;
   }
 
   /// Tìm checkpoint gần nhất phía trước quiz hiện tại

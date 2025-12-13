@@ -14,10 +14,10 @@ class QuizQuestion {
 
   factory QuizQuestion.fromJson(Map<String, dynamic> json) {
     return QuizQuestion(
-      questionText: json['question_text'],
-      options: Map<String, dynamic>.from(json['options']),
-      correctOption: json['correct_option'],
-      explanation: json['explanation'],
+      questionText: json['question_text']?.toString() ?? 'Câu hỏi không có nội dung',
+      options: json['options'] is Map ? Map<String, dynamic>.from(json['options']) : {},
+      correctOption: json['correct_option']?.toString() ?? '',
+      explanation: json['explanation']?.toString() ?? 'Không có giải thích',
     );
   }
 }

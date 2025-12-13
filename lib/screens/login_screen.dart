@@ -5,12 +5,13 @@ import 'package:android_basic/screens/home_screen.dart';
 import 'package:android_basic/screens/signup_screen.dart';
 import 'package:android_basic/widgets/custom_button.dart';
 import 'package:android_basic/widgets/custom_widgets.dart';
+import 'package:android_basic/widgets/simple_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import '../config/server.dart';
-
-import 'package:awesome_dialog/awesome_dialog.dart';
+import '../api/auth_api.dart';
+import '../helpers/auth_helper.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -23,46 +24,137 @@ class _LoginScreenState extends State<LoginScreen> {
   final usernameController = TextEditingController();
   final passwordController = TextEditingController();
   static final _storage = const FlutterSecureStorage();
+  bool isLoading = false;
+  final AuthApi _authApi = AuthApi(); // Khởi tạo service
 
+  // void handleLogin() async {
+  //   final username = usernameController.text;
+  //   final password = passwordController.text;
+
+  //   setState(() {
+  //     isLoading = true;
+  //   });
+
+  //   final result = await AuthApi().login(username, password);
+
+  //   setState(() {
+  //     isLoading = false;
+  //   });
+
+  //   if (result['success'] == true) {
+  //     // Hiển thị toast
+  //     SimpleToast.showSuccess(
+  //       context,
+  //       'Đăng nhập thành công! Chào mừng bạn quay trở lại!',
+  //     );
+
+  //     // Chuyển trang (không cần delay nếu bạn không muốn)
+  //     Future.delayed(Duration(milliseconds: 1000), () {
+  //       Navigator.pushReplacement(
+  //         context,
+  //         MaterialPageRoute(builder: (_) => HomeScreen()),
+  //       );
+  //     });
+  //   } else {
+  //     SimpleToast.showError(context, result['message']);
+  //   }
+  // }
+
+  // void handleGoogleLogin() async {
+  //   setState(() {
+  //     isLoading = true;
+  //   });
+
+  //   // Gọi hàm từ Service
+  //   final result = await _authApi.loginWithGoogle();
+
+  //   setState(() {
+  //     isLoading = false;
+  //   });
+
+  //   if (result['success']) {
+  //     SimpleToast.showSuccess(context, 'Đăng nhập Google thành công!');
+
+  //     Future.delayed(Duration(milliseconds: 1000), () {
+  //       Navigator.pushReplacement(
+  //         context,
+  //         MaterialPageRoute(builder: (context) => HomeScreen()),
+  //       );
+  //     });
+  //   } else {
+  //     SimpleToast.showError(context, result['message']);
+  //   }
+  // }
+
+  // 1. XỬ LÝ ĐĂNG NHẬP THƯỜNG
   void handleLogin() async {
-    final url = Uri.parse('$baseUrl/api/auth/user/login');
+    final username = usernameController.text;
+    final password = passwordController.text;
 
-    final body = jsonEncode({
-      'username': usernameController.text.trim(),
-      'password': passwordController.text.trim(),
-    });
+    setState(() => isLoading = true);
 
-    try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: body,
+    final result = await AuthApi().login(username, password);
+
+    setState(() => isLoading = false);
+
+    if (result['success'] == true) {
+      // --- [BỔ SUNG QUAN TRỌNG] ---
+      // Lấy cục data từ kết quả trả về
+      final data = result['data'];
+
+      // Lưu vào Secure Storage thông qua AuthHelper
+      await AuthHelper.saveAuthData(
+        accessToken: data['accessToken'],
+        refreshToken: data['refreshToken'],
+        user: data['user'], // Map chứa id, username, avatar...
       );
+      // ----------------------------
+      SimpleToast.showSuccess(context, 'hmm!');
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+      if (!mounted) return; // Check mounted để tránh lỗi context khi async
 
-        final token = data['token'];
-        final user = data['user'];
+      SimpleToast.showSuccess(context, 'Đăng nhập thành công!');
 
-        // ?['username'] ?? 'Ẩn danh';
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => HomeScreen()),
+      );
+    } else {
+      if (!mounted) return;
+      SimpleToast.showError(context, result['message']);
+    }
+  }
 
-        // ✅ Lưu token sau khi đăng nhập
-        await _storage.write(key: 'jwt_token', value: token);
+  // 2. XỬ LÝ ĐĂNG NHẬP GOOGLE
+  void handleGoogleLogin() async {
+    setState(() => isLoading = true);
 
-        // Lưu id, họ tên user
-        await _storage.write(key: 'user', value: jsonEncode(user));
-        // Chuyển hướng sang màn hình chính
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => HomeScreen()),
-        );
-      } else {
-        print("Lỗi: ${response.statusCode}");
-        print("Body: ${response.body}");
-      }
-    } catch (e) {
-      print("Đã xảy ra lỗi: $e");
+    final result = await _authApi.loginWithGoogle();
+
+    setState(() => isLoading = false);
+
+    if (result['success'] == true) {
+      // --- [BỔ SUNG QUAN TRỌNG] ---
+      final data = result['data'];
+
+      await AuthHelper.saveAuthData(
+        accessToken: data['accessToken'],
+        refreshToken: data['refreshToken'],
+        user: data['user'],
+      );
+      // ----------------------------
+
+      if (!mounted) return;
+
+      SimpleToast.showSuccess(context, 'Đăng nhập Google thành công!');
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => HomeScreen()),
+      );
+    } else {
+      if (!mounted) return;
+      SimpleToast.showError(context, result['message']);
     }
   }
 
@@ -112,7 +204,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         textAlign: TextAlign.center,
                       ),
                     ),
-                    SizedBox(height: 120),
+                    SizedBox(height: 80),
 
                     // Gắn controller vào CustomTextfield
                     CustomTextfield(
@@ -140,11 +232,100 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     SizedBox(height: 30),
                     CustomButton(
-                      text: "Sign in",
+                      text: isLoading ? "Đang đăng nhập..." : "Sign in",
                       isLarge: true,
-                      onPressed: handleLogin,
+                      onPressed: isLoading ? null : handleLogin,
                     ),
-                    SizedBox(height: 40),
+                    SizedBox(height: 30),
+
+                    // Dòng kẻ phân cách "Or continue with"
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Divider(color: Colors.grey[400], thickness: 1),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Text(
+                            "Or continue with",
+                            style: body.copyWith(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Divider(color: Colors.grey[400], thickness: 1),
+                        ),
+                      ],
+                    ),
+
+                    SizedBox(height: 20),
+
+                    // Nút Google Login
+                    InkWell(
+                      onTap: handleGoogleLogin,
+                      borderRadius: BorderRadius.circular(
+                        10,
+                      ), // Bo góc khi nhấn
+                      child: Container(
+                        height:
+                            55, // Chiều cao bằng hoặc nhỏ hơn CustomButton xíu
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10), // Bo góc
+                          border: Border.all(
+                            color: Colors.grey[300]!,
+                          ), // Viền mỏng
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.1),
+                              spreadRadius: 1,
+                              blurRadius: 3,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            // Logo Google
+                            // Nếu bạn có file ảnh thì dùng: Image.asset('assets/images/google_logo.png', height: 24),
+                            // Ở đây mình dùng Icon tạm, nhưng Google bắt buộc dùng logo gốc của họ để đúng luật brand
+                            Container(
+                              padding: EdgeInsets.all(5),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.transparent,
+                              ),
+                              // Bạn nên thay icon này bằng ảnh logo Google chuẩn (file png)
+                              child: Image.network(
+                                'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/1200px-Google_%22G%22_logo.svg.png',
+                                height: 24,
+                                width: 24,
+                                errorBuilder:
+                                    (context, error, stackTrace) => Icon(
+                                      Icons.g_mobiledata,
+                                      size: 30,
+                                      color: Colors.red,
+                                    ),
+                              ),
+                            ),
+                            SizedBox(width: 10),
+                            Text(
+                              "Sign in with Google",
+                              style: body.copyWith(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87, // Chữ màu đen/xám đậm
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 30),
                     InkWell(
                       onTap: () {
                         Navigator.push(
@@ -161,26 +342,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                    ),
-                    SizedBox(height: 50),
-                    Text(
-                      "Or continue with",
-                      style: body.copyWith(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: primary,
-                      ),
-                    ),
-                    SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SocialButton(iconPath: "assets/google_icon.png"),
-                        SizedBox(width: 10),
-                        SocialButton(iconPath: "assets/facebook_icon.png"),
-                        SizedBox(width: 10),
-                        SocialButton(iconPath: "assets/apple_icon.png"),
-                      ],
                     ),
                   ],
                 ),

@@ -43,3 +43,33 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# ============================
+# Custom additions
+# ============================
+
+# Environment
+.env
+*.env
+
+# Firebase config (optional - remove if you want to commit)
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+macos/Runner/GoogleService-Info.plist
+
+# Generated code from build_runner
+*.g.dart
+*.freezed.dart
+
+# Additional cache
+.flutter-versions
+.packages
+.tmp/
+.melior_cache/
+
+# Flutter assets generated
+**/flutter_assets/
+
+# Logs
+*.log
+

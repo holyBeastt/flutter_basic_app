@@ -35,9 +35,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> getUserData() async {
     // Lấy tên người dùng
-    final name = await AuthHelper.getUsernameFromToken();
+    final name = await AuthHelper.getUsername();
     // Lấy id người dùng
-    final id = await AuthHelper.getUserIdFromToken();
+    final id = await AuthHelper.getUserId();
     setState(() {
       username = name ?? 'Ẩn danh';
       userID = id ?? 0;
@@ -65,6 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
   }
+
   void _onItemTapped(int index) {
     if (index == 0) {
       // Tab "Nổi bật" - Load tất cả courses
@@ -322,8 +323,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Icon(Icons.search_off, color: Colors.grey, size: 64),
               SizedBox(height: 16),
-        
-              ],       
+            ],
           ),
         ),
       );
