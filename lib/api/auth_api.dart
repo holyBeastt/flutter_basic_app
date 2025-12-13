@@ -90,7 +90,35 @@ class AuthApi {
           'data':
               responseData, // ✅ SỬA QUAN TRỌNG: Trả về responseData, KHÔNG PHẢI requestBody
         };
-      } else {
+      } 
+      // ========== [NEW] XỬ LÝ TÀI KHOẢN BỊ KHÓA ==========
+      else if (response.statusCode == 423) {
+        final remainingMinutes = responseData['remaining_minutes'] ?? 10;
+        return {
+          'success': false,
+          'locked': true, // Đánh dấu là bị khóa
+          'message': responseData['error'] ?? 'Tài khoản đã bị khóa',
+          'remaining_minutes': remainingMinutes,
+          'locked_until': responseData['locked_until'],
+        };
+      } 
+      // ========== XỬ LÝ SAI MẬT KHẨU (CÒN LẦN THỬ) ==========
+      else if (response.statusCode == 401) {
+        final attemptsRemaining = responseData['attempts_remaining'];
+        String message = responseData['error'] ?? 'Đăng nhập thất bại!';
+        
+        // Nếu có thông tin số lần còn lại
+        if (attemptsRemaining != null) {
+          message = 'Sai mật khẩu. Còn $attemptsRemaining lần thử.';
+        }
+        
+        return {
+          'success': false,
+          'message': message,
+          'attempts_remaining': attemptsRemaining,
+        };
+      } 
+      else {
         return {
           'success': false,
           'message':
