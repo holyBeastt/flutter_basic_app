@@ -98,20 +98,17 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => isLoading = false);
 
     if (result['success'] == true) {
-      // --- [BỔ SUNG QUAN TRỌNG] ---
-      // Lấy cục data từ kết quả trả về
+      // ========== ĐĂNG NHẬP THÀNH CÔNG ==========
       final data = result['data'];
 
       // Lưu vào Secure Storage thông qua AuthHelper
       await AuthHelper.saveAuthData(
         accessToken: data['accessToken'],
         refreshToken: data['refreshToken'],
-        user: data['user'], // Map chứa id, username, avatar...
+        user: data['user'],
       );
-      // ----------------------------
-      SimpleToast.showSuccess(context, 'hmm!');
 
-      if (!mounted) return; // Check mounted để tránh lỗi context khi async
+      if (!mounted) return;
 
       SimpleToast.showSuccess(context, 'Đăng nhập thành công!');
 
@@ -119,9 +116,82 @@ class _LoginScreenState extends State<LoginScreen> {
         context,
         MaterialPageRoute(builder: (_) => HomeScreen()),
       );
-    } else {
+    } 
+    // ========== TÀI KHOẢN BỊ KHÓA (Backend trả về 423) ==========
+    else if (result['locked'] == true) {
       if (!mounted) return;
-      SimpleToast.showError(context, result['message']);
+      
+      final remainingMinutes = result['remaining_minutes'] ?? 10;
+      
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.lock_clock, color: Colors.red, size: 28),
+              SizedBox(width: 10),
+              Text('Tài khoản bị khóa'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Tài khoản "${username}" đã bị khóa do nhập sai mật khẩu quá nhiều lần.',
+                style: TextStyle(fontSize: 16),
+              ),
+              SizedBox(height: 20),
+              Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    Icon(Icons.timer, size: 40, color: Colors.red),
+                    SizedBox(height: 8),
+                    Text(
+                      'Thời gian còn lại:',
+                      style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      '$remainingMinutes phút',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Đã hiểu', style: TextStyle(fontSize: 16)),
+            ),
+          ],
+        ),
+      );
+    } 
+    // ========== SAI MẬT KHẨU (Backend trả về attempts_remaining) ==========
+    else {
+      if (!mounted) return;
+      
+      String errorMessage = result['message'] ?? 'Đăng nhập thất bại!';
+      
+      // Nếu backend trả về số lần còn lại
+      if (result['attempts_remaining'] != null) {
+        final attemptsLeft = result['attempts_remaining'];
+        errorMessage = 'Sai mật khẩu! Còn $attemptsLeft lần thử.';
+      }
+      
+      SimpleToast.showError(context, errorMessage);
     }
   }
 
