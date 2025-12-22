@@ -78,6 +78,14 @@ class AuthHelper {
         : int.tryParse(payload['id'].toString());
   }
 
+  static Future<String?> getRawUserInfo() async {
+    return await _storage.read(key: _kUserInfo);
+  }
+
+  static Future<void> saveUserInfo(Map<String, dynamic> user) async {
+    await _storage.write(key: _kUserInfo, value: jsonEncode(user));
+  }
+
   // --- 5. LOGOUT ---
   static Future<void> logout() async {
     await _storage.deleteAll();

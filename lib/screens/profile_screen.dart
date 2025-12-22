@@ -4,10 +4,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../helpers/auth_helper.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/server.dart';
+import '../api/user_api.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -25,13 +27,96 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    getUserInfo();
+    // getUserInfo();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadUserInfo();
+    });
+  }
+
+  // / Load user info từ server (đã decrypt ở backend)
+  Future<void> _loadUserInfo() async {
+    try {
+      debugPrint('🔥 loadUserInfo start');
+
+      final token = await AuthHelper.getAccessToken();
+      if (token == null) throw Exception('Chưa đăng nhập');
+
+      final userStr = await AuthHelper.getRawUserInfo();
+      if (userStr == null) throw Exception('Không tìm thấy user_info');
+
+      final localUser = jsonDecode(userStr);
+      final userId = localUser['id']?.toString();
+      if (userId == null) throw Exception('UserId null');
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/users/$userId/get-user-info'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('API lỗi ${response.statusCode}');
+      }
+
+      final data = jsonDecode(response.body);
+
+      if (!mounted) return;
+
+      setState(() {
+        userMap = {
+          'id': data['id'],
+          'username': data['username'],
+          'bio': data['bio'],
+          'sex': data['sex'],
+          'avatar_url': data['avatar_url'],
+        };
+        isLoading = false;
+      });
+
+      await AuthHelper.saveUserInfo(userMap);
+    } catch (e) {
+      debugPrint('❌ loadUserInfo error: $e');
+      if (mounted) setState(() => isLoading = false);
+    }
   }
 
   // Hàm upload avatar lên Supabase Storage
- Future<String?> uploadAvatarToSupabase(File file, String userId) async {
+  // Future<String?> uploadAvatarToSupabase(File file, String userId) async {
+  //   final supabase = Supabase.instance.client;
+  //   final fileExt = file.path.split('.').last;
+  //   final fileName =
+  //       'avatar_${userId}_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+  //   final filePath = 'avatar/$fileName';
+
+  //   try {
+  //     final fileBytes = await file.readAsBytes();
+
+  //     final response = await supabase.storage
+  //         .from('images')
+  //         .uploadBinary(
+  //           filePath,
+  //           fileBytes,
+  //           fileOptions: const FileOptions(upsert: true),
+  //         );
+
+  //     if (response.isEmpty) {
+  //       print('❌ Upload thất bại: Không có phản hồi');
+  //       return null;
+  //     }
+
+  //     final publicUrl = supabase.storage.from('images').getPublicUrl(filePath);
+
+  //     print('✅ Upload thành công. Public URL: $publicUrl');
+  //     return publicUrl;
+  //   } catch (e) {
+  //     print('❌ Lỗi khi upload: $e');
+  //     return null;
+  //   }
+  // }
+
+  Future<String?> uploadAvatarToSupabase(File file, String userId) async {
     final supabase = Supabase.instance.client;
-    final fileExt = file.path.split('.').last;
+
+    final fileExt = file.path.split('.').last.toLowerCase();
     final fileName =
         'avatar_${userId}_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
     final filePath = 'avatar/$fileName';
@@ -39,87 +124,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final fileBytes = await file.readAsBytes();
 
-      final response = await supabase.storage
+      await supabase.storage
           .from('images')
           .uploadBinary(
             filePath,
             fileBytes,
-            fileOptions: const FileOptions(upsert: true),
+            fileOptions: FileOptions(
+              upsert: true,
+              contentType: 'image/$fileExt',
+            ),
           );
-
-      if (response.isEmpty) {
-        print('❌ Upload thất bại: Không có phản hồi');
-        return null;
-      }
 
       final publicUrl = supabase.storage.from('images').getPublicUrl(filePath);
 
-      print('✅ Upload thành công. Public URL: $publicUrl');
       return publicUrl;
     } catch (e) {
-      print('❌ Lỗi khi upload: $e');
+      debugPrint('❌ Upload avatar error: $e');
       return null;
-    }
-  }
-
-
-  Future<void> getUserInfo() async {
-    final token = await _storage.read(key: 'jwt_token');
-    final userStr = await _storage.read(key: 'user');
-    String? userId;
-
-    if (userStr != null) {
-      userMap = jsonDecode(userStr); // Gán cho biến toàn cục
-      userId = userMap['id'].toString();
-      await _storage.write(key: 'userId', value: userId);
-    }
-
-    print('🔍 userStr = $userStr');
-    print('🔍 userId = $userId');
-
-    if (userId == null) {
-      setState(() => isLoading = false);
-      return;
-    }
-
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/users/$userId/get-user-info'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-
-      print('📥 Calling API: $baseUrl/api/users/$userId/get-user-info');
-      print('📥 Response body: ${response.body}');
-print('📥 Response code======: $response');
-      if (response.statusCode == 200) {
-       final user = jsonDecode(response.body);
-
-        print('✅ API trả về user====: $user');
-        print(
-          '🧠 Avatar URL khi load lại=========: ${user['avatar_url'] ?? user['avatar']}',
-        );
-      setState(() {
-          userMap = {
-            'id': user['id'],
-            'username': user['username'] ?? user['username_acc'],
-            'password': user['password'],
-            'bio': user['bio'],
-            'sex': user['sex'],
-            'avatar_url': user['avatar_url'],
-
-          };
-          isLoading = false;
-        });
-      
-
-        await _storage.write(key: 'user', value: jsonEncode(userMap));
-      } else {
-        print('Lỗi response ${response.statusCode}: ${response.body}');
-        setState(() => isLoading = false);
-      }
-    } catch (e) {
-      print('Lỗi lấy user info: $e');
-      setState(() => isLoading = false);
     }
   }
 
@@ -128,10 +149,10 @@ print('📥 Response code======: $response');
     String? newPassword,
     String? oldPassword,
     String? newBio,
-    String? newsex,
+    String? newSex,
     String? newAvatarUrl,
   }) async {
-    final userId = userMap['id']?.toString();
+    final userId = userMap['id'];
 
     if (userId == null) {
       ScaffoldMessenger.of(
@@ -140,43 +161,42 @@ print('📥 Response code======: $response');
       return;
     }
 
-final updatedData = <String, dynamic>{
-      "username": newUsername ?? userMap['username'],
-      "bio": newBio ?? userMap['bio'],
-      "sex": newsex ?? userMap['sex'],
-      "avatar_url": newAvatarUrl ?? userMap['avatar_url'],
-    };
+    final updatedData = <String, dynamic>{};
+
+    if (newUsername != null) updatedData['username'] = newUsername;
+    if (newBio != null) updatedData['bio'] = newBio;
+    if (newSex != null) updatedData['sex'] = newSex;
+    if (newAvatarUrl != null) updatedData['avatar_url'] = newAvatarUrl;
 
     if (newPassword != null &&
-        newPassword.isNotEmpty &&
         oldPassword != null &&
+        newPassword.isNotEmpty &&
         oldPassword.isNotEmpty) {
-      updatedData["password"] = newPassword;
-      updatedData["oldPassword"] = oldPassword;
+      updatedData['password'] = newPassword;
+      updatedData['oldPassword'] = oldPassword;
     }
 
+    if (updatedData.isEmpty) return;
 
     try {
-      final response = await http.put(
-        Uri.parse('$baseUrl/api/users/update/$userId'),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode(updatedData),
+      final resp = await UserAPI.updateUserInfo(
+        int.parse(userId.toString()),
+        updatedData,
       );
 
-      if (response.statusCode == 200) {
-        final updatedMap = {...userMap, ...updatedData};
-        setState(() => userMap = updatedMap);
-        await _storage.write(key: 'user', value: jsonEncode(updatedMap));
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Cập nhật thành công!')));
-      } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Cập nhật thất bại!')));
-      }
+      final returnedUser = resp['user'] ?? resp;
+
+      setState(() {
+        userMap = {...userMap, ...returnedUser};
+      });
+
+      await _storage.write(key: 'user_info', value: jsonEncode(userMap));
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Cập nhật thành công!')));
     } catch (e) {
-      print('Error updating user info: $e');
+      debugPrint('❌ Update user info error: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Lỗi khi cập nhật thông tin')),
       );
@@ -226,6 +246,26 @@ final updatedData = <String, dynamic>{
           ),
     );
   }
+
+  String? normalizeSex(String value) {
+    if (value.isEmpty) return null;
+
+    switch (value.toLowerCase()) {
+      case 'nam':
+      case 'male':
+        return 'Nam';
+      case 'nữ':
+      case 'nu':
+      case 'female':
+        return 'Nữ';
+      case 'khác':
+      case 'other':
+        return 'Khác';
+      default:
+        return null;
+    }
+  }
+
   void _showEditDialog(
     String title,
     String initialValue,
@@ -233,7 +273,7 @@ final updatedData = <String, dynamic>{
     bool issex = false,
   }) {
     final controller = TextEditingController(text: initialValue);
-    String selectedsex = initialValue;
+    String? selectedSex = normalizeSex(initialValue);
 
     showDialog(
       context: context,
@@ -246,31 +286,36 @@ final updatedData = <String, dynamic>{
                       builder:
                           (context, setState) =>
                               DropdownButtonFormField<String>(
-                                value:
-                                    selectedsex.isNotEmpty
-                                        ? selectedsex
-                                        : null,
+                                value: selectedSex,
                                 decoration: const InputDecoration(
                                   labelText: 'Chọn giới tính',
+                                  border: OutlineInputBorder(),
                                 ),
-                                items:
-                                    ['Nam', 'Nữ', 'Khác']
-                                        .map(
-                                          (g) => DropdownMenuItem(
-                                            value: g,
-                                            child: Text(g),
-                                          ),
-                                        )
-                                        .toList(),
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'Nam',
+                                    child: Text('Nam'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'Nữ',
+                                    child: Text('Nữ'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'Khác',
+                                    child: Text('Khác'),
+                                  ),
+                                ],
                                 onChanged: (value) {
-                                  if (value != null)
-                                    setState(() => selectedsex = value);
+                                  setState(() => selectedSex = value);
                                 },
                               ),
                     )
                     : TextField(
                       controller: controller,
-                      decoration: InputDecoration(hintText: 'Nhập $title mới'),
+                      decoration: InputDecoration(
+                        hintText: 'Nhập $title mới',
+                        border: const OutlineInputBorder(),
+                      ),
                     ),
             actions: [
               TextButton(
@@ -280,7 +325,7 @@ final updatedData = <String, dynamic>{
               TextButton(
                 onPressed: () {
                   if (issex) {
-                    onSave(selectedsex);
+                    if (selectedSex != null) onSave(selectedSex!);
                   } else {
                     onSave(controller.text.trim());
                   }
@@ -394,7 +439,7 @@ final updatedData = <String, dynamic>{
             _showEditDialog(
               'giới tính',
               userMap['sex'] ?? '',
-              (v) => updateUserInfo(newsex: v),
+              (v) => updateUserInfo(newSex: v),
               issex: true,
             );
           }),
