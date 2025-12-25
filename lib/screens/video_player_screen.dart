@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import '../helpers/auth_helper.dart';
+import '../api/lesson_api.dart';
 
 import '../api/quiz_api.dart';
 import '../models/quiz_question.dart';
@@ -33,7 +34,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   Timer? _timer;
   List<Map<String, dynamic>> _checkpoints = [];
-  Set<String> _triggeredCheckpoints = {}; // Thay đổi từ Set<int> thành Set<String> để track checkpoint cụ thể
+  Set<String> _triggeredCheckpoints =
+      {}; // Thay đổi từ Set<int> thành Set<String> để track checkpoint cụ thể
   bool _isQuizActive = false; // NEW: đánh dấu đang hiển thị quiz
 
   static const _kSaveInterval = 15; // gửi progress mỗi 15 s
@@ -49,8 +51,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     player = Player();
     controller = VideoController(player);
 
-    /// Bước 1: mở media
-    player.open(Media(widget.url));
+    // Prepare and open media (fetch signed URL first)
+    _prepareAndOpen();
 
     /// Bước 2: lắng nghe khi duration > 0 ⇒ player đã sẵn sàng
     _durationSub = player.stream.duration.listen((d) async {
@@ -63,6 +65,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     /// Bước 3: lắng nghe khi player đã sẵn sàng
     _loadCheckpoints();
     _startTimeMonitoring();
+  }
+
+  Future<void> _prepareAndOpen() async {
+    try {
+      // Try to fetch signed URL from server (falls back to provided url)
+      String? signed = await LessonApi.getSignedUrl(widget.lessonId);
+      final mediaUrl = signed ?? widget.url;
+
+      player.open(Media(mediaUrl));
+    } catch (e) {
+      // On error, fallback to original url
+      player.open(Media(widget.url));
+    }
   }
 
   Future<void> getUserData() async {
@@ -283,7 +298,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           ),
         );
 
-        _triggeredCheckpoints.remove("${_getCurrentCheckpointTime(quizId)}_$quizId");
+        _triggeredCheckpoints.remove(
+          "${_getCurrentCheckpointTime(quizId)}_$quizId",
+        );
         await player.seek(targetTime);
         await player.play();
       }
