@@ -1,7 +1,8 @@
 // lib/api/progress_api.dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../config/server.dart'; // chứa baseUrl
+import '../config/server.dart';
+import '../helpers/app_logger.dart'; // chứa baseUrl
 
 class ProgressApi {
   /// -------------------------------
@@ -13,8 +14,8 @@ class ProgressApi {
     required int userId,
   }) async {
     final url = Uri.parse('$baseUrl/api/v1/save-progress');
-    print(
-      'saveProgress: $url, lessonId: $lessonId, seconds: $seconds, userId: $userId',
+    AppLogger.debug(
+      'saveProgress: lessonId=$lessonId, seconds=$seconds, userId=$userId',
     );
     final res = await http.post(
       url,
@@ -69,7 +70,7 @@ class ProgressApi {
 
   static Future<int?> getProgress(int lessonId, int userId) async {
     final url = Uri.parse('$baseUrl/api/v1/progress/$lessonId');
-    print('getProgress: $url, userId: $userId');
+    AppLogger.debug('getProgress: lessonId=$lessonId, userId=$userId');
     final res = await http.get(
       url,
       headers: {

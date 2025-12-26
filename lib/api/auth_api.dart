@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
-import '../config/server.dart'; // Đảm bảo baseUrl đúng: http://10.0.2.2:3000 (Android) hoặc localhost (iOS)
+import '../config/server.dart';
+import '../helpers/app_logger.dart'; // Đảm bảo baseUrl đúng: http://10.0.2.2:3000 (Android) hoặc localhost (iOS)
 
 class AuthApi {
   final GoogleSignIn _googleSignIn = GoogleSignIn(
@@ -54,7 +55,7 @@ class AuthApi {
         };
       }
     } catch (e) {
-      print("Google Login Error: $e");
+      AppLogger.error('Google Login Error', e);
       return {'success': false, 'message': 'Lỗi kết nối: $e'};
     }
   }

@@ -1,8 +1,9 @@
-import 'dart:convert'; // Để encode/decode JSON User
+import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:jwt_decode/jwt_decode.dart';
 import '../config/server.dart';
 import 'package:http/http.dart' as http;
+import 'app_logger.dart';
 
 class AuthHelper {
   // Nên dùng AndroidOptions để mã hóa trên Android (tránh lỗi trên một số máy)
@@ -68,7 +69,7 @@ class AuthHelper {
         return false;
       }
     } catch (e) {
-      print("Lỗi khi refresh session: $e");
+      AppLogger.error('Error refreshing session', e);
       return false;
     }
   }

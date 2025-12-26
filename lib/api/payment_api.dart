@@ -4,6 +4,7 @@ import '../models/payment.dart';
 import '../config/server.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../helpers/app_logger.dart';
 
 class PaymentApi {
   // Simulate payment processing delay
@@ -80,8 +81,8 @@ static Future<Map<String, dynamic>> checkMomoStatus(String orderId) async {
         return jsonDecode(res.body);
       } else {
         // Debug: In ra response nếu không phải JSON
-        print('API ERROR: ${res.statusCode}');
-        print('Response: ${res.body}');
+        AppLogger.debug('API ERROR: ${res.statusCode}');
+        AppLogger.debug('Response: ${res.body}');
         return {
           'success': false,
           'message': 'Kết nối thất bại hoặc server trả về dữ liệu không hợp lệ',
@@ -89,8 +90,8 @@ static Future<Map<String, dynamic>> checkMomoStatus(String orderId) async {
       }
     } catch (e) {
       // Nếu lỗi khi parse JSON
-      print('Lỗi khi đọc JSON từ server: $e');
-      print('Response: ${res.body}');
+      AppLogger.error('Lỗi khi đọc JSON từ server', e);
+      AppLogger.debug('Response: ${res.body}');
       return {'success': false, 'message': 'Lỗi khi xử lý dữ liệu từ server'};
     }
   }

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/server.dart';
 import '../helpers/auth_helper.dart';
+import '../helpers/app_logger.dart';
 
 class LessonApi {
   /// Request signed URL for a lesson video
@@ -38,7 +39,7 @@ class LessonApi {
     );
 
     // Lần gọi 1
-    print("hoi hoi");
+    AppLogger.debug('Getting signed URL for lesson $lessonId');
     var res = await http.get(
       url,
       headers: token != null ? {'Authorization': 'Bearer $token'} : {},
@@ -46,7 +47,7 @@ class LessonApi {
 
     // XỬ LÝ REFRESH TOKEN TỰ ĐỘNG
     if (res.statusCode == 401) {
-      print("Access Token hết hạn, đang tiến hành làm mới...");
+      AppLogger.debug('Access Token expired, refreshing...');
 
       bool success = await AuthHelper.refreshSession();
 
@@ -59,9 +60,9 @@ class LessonApi {
           url,
           headers: token != null ? {'Authorization': 'Bearer $token'} : {},
         );
-        print("Refresh thành công, đã lấy được URL mới.");
+        AppLogger.debug('Refresh success, got new URL');
       } else {
-        print("Refresh thất bại, người dùng cần đăng nhập lại.");
+        AppLogger.debug('Refresh failed, user needs to login again');
         return null;
       }
     }

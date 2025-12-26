@@ -5,6 +5,7 @@ import 'package:android_basic/models/section.dart';
 import 'package:android_basic/models/teacher_course.dart';
 import 'package:http/http.dart' as http;
 import '../config/server.dart';
+import '../helpers/app_logger.dart';
 
 class CoursesApi {
   static Future<List<Course>> getCoursesList() async {
@@ -23,7 +24,7 @@ class CoursesApi {
 static Future<List<Course>> getCoursesBySearch(String query) async {
     final url = Uri.parse('$baseUrl/api/courses/search?query=$query');
     final response = await http.get(url);
-print('Response status=============: ${response.statusCode}');
+AppLogger.api('/api/courses/search', response.statusCode);
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       return (data as List)
@@ -37,7 +38,7 @@ print('Response status=============: ${response.statusCode}');
   static Future<List<Course>> getCoursesByCategory(String category) async {
     final url = Uri.parse('$baseUrl/api/courses/category/$category');
     final response = await http.get(url);
-print('Response status=============: ${response.statusCode}');
+AppLogger.api('/api/courses/category', response.statusCode);
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       return (data as List)
@@ -60,7 +61,7 @@ print('Response status=============: ${response.statusCode}');
               .map((e) => Section.fromJson(e as Map<String, dynamic>))
               .toList();
         } else {
-          print("Expected List but got ${decodedData.runtimeType}");
+          AppLogger.debug('Expected List but got ${decodedData.runtimeType}');
           return [];
         }
       } else {
@@ -69,7 +70,7 @@ print('Response status=============: ${response.statusCode}');
         );
       }
     } catch (e) {
-      print('Error in fetchSections: $e');
+      AppLogger.error('Error in fetchSections', e);
       rethrow;
     }
   }
@@ -88,7 +89,7 @@ print('Response status=============: ${response.statusCode}');
               .map((e) => Review.fromJson(e as Map<String, dynamic>))
               .toList();
         } else {
-          print("Expected List but got ${decodedData.runtimeType}");
+          AppLogger.debug('Expected List but got ${decodedData.runtimeType}');
           return [];
         }
       } else {
@@ -97,7 +98,7 @@ print('Response status=============: ${response.statusCode}');
         );
       }
     } catch (e) {
-      print('Error in fetchReviews: $e');
+      AppLogger.error('Error in fetchReviews', e);
       rethrow;
     }
   }
@@ -120,7 +121,7 @@ static Future<bool> submitReview({
       }),
     );
 
-    print('Phản hồi status: ${response.statusCode}');
+    AppLogger.api('/api/courses/reviews', response.statusCode);
 
     return response.statusCode == 200 || response.statusCode == 201;
   }
@@ -142,17 +143,17 @@ static Future<bool> submitReview({
               decodedData.containsKey('courses')) {
             return TeacherInfoResponse.fromJson(decodedData);
           } else {
-            print(
+            AppLogger.debug(
               "Response format không đúng. Expected keys: 'teacher', 'courses'",
             );
-            print("Actual response: $decodedData");
+            AppLogger.debug('Actual response: $decodedData');
             throw Exception('Invalid response format');
           }
         } else {
-          print(
-            "Expected Map<String, dynamic> but got ${decodedData.runtimeType}",
+          AppLogger.debug(
+            'Expected Map<String, dynamic> but got ${decodedData.runtimeType}',
           );
-          print("Actual response: $decodedData");
+          AppLogger.debug('Actual response: $decodedData');
           throw Exception('Invalid response type');
         }
       } else {
@@ -161,7 +162,7 @@ static Future<bool> submitReview({
         );
       }
     } catch (e) {
-      print('Error in fetchTeacherInfo: $e');
+      AppLogger.error('Error in fetchTeacherInfo', e);
       rethrow;
     }
   }
