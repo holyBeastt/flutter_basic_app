@@ -1,6 +1,8 @@
 import 'dart:convert'; // Để encode/decode JSON User
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:jwt_decode/jwt_decode.dart';
+import '../config/server.dart';
+import 'package:http/http.dart' as http;
 
 class AuthHelper {
   // Nên dùng AndroidOptions để mã hóa trên Android (tránh lỗi trên một số máy)
@@ -37,6 +39,38 @@ class AuthHelper {
 
   static Future<String?> getRefreshToken() async {
     return await _storage.read(key: _kRefreshToken);
+  }
+
+  static Future<bool> refreshSession() async {
+    try {
+      final refreshToken = await getRefreshToken();
+      if (refreshToken == null) return false;
+
+      // Gọi API refresh token đã viết ở Backend
+      final response = await http.post(
+        Uri.parse(
+          '$baseUrl/api/auth/user/refresh-token',
+        ), // Đường dẫn route auth của bạn
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'refreshToken': refreshToken}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final newAccessToken = data['accessToken'];
+
+        // Cập nhật Access Token mới vào Storage
+        await updateAccessToken(newAccessToken);
+        return true;
+      } else {
+        // Nếu Refresh Token cũng hết hạn (403), bắt buộc logout
+        await logout();
+        return false;
+      }
+    } catch (e) {
+      print("Lỗi khi refresh session: $e");
+      return false;
+    }
   }
 
   // --- 3. LẤY THÔNG TIN USER (TỪ STORAGE, KHÔNG PHẢI TỪ TOKEN) ---
