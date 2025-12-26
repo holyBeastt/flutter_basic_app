@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- Block all cleartext (HTTP) traffic - HTTPS only -->
-    <base-config cleartextTrafficPermitted="false">
+    <!-- Allow cleartext (HTTP) traffic for local development -->
+    <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
