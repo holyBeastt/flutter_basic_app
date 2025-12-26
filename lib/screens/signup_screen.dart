@@ -1,13 +1,10 @@
-import 'dart:convert';
-
 import 'package:android_basic/constants.dart';
 import 'package:android_basic/screens/login_screen.dart';
 import 'package:android_basic/widgets/custom_button.dart';
 import 'package:android_basic/widgets/custom_widgets.dart';
 import 'package:android_basic/widgets/simple_toast.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import '../config/server.dart';
+import '../api/auth_api.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -21,56 +18,33 @@ class _SignupScreenState extends State<SignupScreen> {
   final passwordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
   final usernameController = TextEditingController(); // Tên người dùng
+  final emailController = TextEditingController(); // Email
   String selectedSex = 'male'; // Giới tính mặc định
+   final AuthApi _authApi = AuthApi();
   bool isLoading = false;
 
   void handleSingup() async {
-    // Kiểm tra thông tin đầu vào
-    if (usernameAccController.text.trim().isEmpty || 
-        passwordController.text.trim().isEmpty || 
-        confirmPasswordController.text.trim().isEmpty ||
-        usernameController.text.trim().isEmpty) {
-      SimpleToast.showError(context, 'Vui lòng nhập đầy đủ thông tin!');
-      return;
-    }
-
-    // Kiểm tra mật khẩu có khớp không
-    if (passwordController.text.trim() != confirmPasswordController.text.trim()) {
-      SimpleToast.showError(context, 'Mật khẩu xác nhận không khớp!');
-      return;
-    }
-
-    // Kiểm tra độ dài mật khẩu
-    if (passwordController.text.trim().length < 6) {
-      SimpleToast.showError(context, 'Mật khẩu phải có ít nhất 6 ký tự!');
-      return;
-    }
-
     setState(() {
       isLoading = true;
     });
 
-    final url = Uri.parse('$baseUrl/api/auth/user/signup');
-
-    final body = jsonEncode({
-      'username_acc': usernameAccController.text.trim(),
-      'password': passwordController.text.trim(),
-      'confirmPassword': confirmPasswordController.text.trim(),
-      'username': usernameController.text.trim(),
-      'sex': selectedSex,
-    });
-
     try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: body,
+      final result = await _authApi.register(
+        usernameAcc: usernameAccController.text.trim(),
+        password: passwordController.text.trim(),
+        confirmPassword: confirmPasswordController.text.trim(),
+        username: usernameController.text.trim(),
+        email: emailController.text.trim(),
+        sex: selectedSex,
       );
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
+      if (result['success']) {
         // Đăng ký thành công - hiển thị thông báo màu xanh
-        SimpleToast.showSuccess(context, 'Đăng ký thành công! Tài khoản của bạn đã được tạo thành công.');
-        
+        SimpleToast.showSuccess(
+          context,
+          result['message'] ?? 'Đăng ký thành công! Tài khoản của bạn đã được tạo thành công.',
+        );
+
         // Chuyển màn hình sau 2 giây
         Future.delayed(Duration(milliseconds: 2000), () {
           Navigator.pushReplacement(
@@ -80,18 +54,10 @@ class _SignupScreenState extends State<SignupScreen> {
         });
       } else {
         // Đăng ký thất bại - hiển thị thông báo lỗi
-        try {
-          final errorData = json.decode(response.body);
-          String errorMessage = 'Đăng ký thất bại!';
-          
-          if (errorData['message'] != null) {
-            errorMessage = errorData['message'];
-          }
-          
-          SimpleToast.showError(context, errorMessage);
-        } catch (jsonError) {
-          SimpleToast.showError(context, 'Đăng ký thất bại! Lỗi: ${response.statusCode}');
-        }
+        SimpleToast.showError(
+          context,
+          result['message'] ?? 'Đăng ký thất bại!',
+        );
       }
     } catch (e) {
       SimpleToast.showError(context, 'Không thể kết nối đến server. Vui lòng thử lại!');
@@ -108,6 +74,7 @@ class _SignupScreenState extends State<SignupScreen> {
     passwordController.dispose();
     confirmPasswordController.dispose();
     usernameController.dispose();
+    emailController.dispose();
     super.dispose();
   }
 
@@ -166,6 +133,11 @@ class _SignupScreenState extends State<SignupScreen> {
                     CustomTextfield(
                       hint: "Họ và tên",
                       controller: usernameController,
+                    ),
+                    const SizedBox(height: 20),
+                    CustomTextfield(
+                      hint: "Email",
+                      controller: emailController,
                     ),
                     const SizedBox(height: 20),
                     // Dropdown cho giới tính
