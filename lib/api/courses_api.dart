@@ -108,8 +108,6 @@ class CoursesApi {
 
   static Future<bool> submitReview({
     required int courseId,
-    required int userId,
-    required String userName,
     required int rating,
     required String comment,
   }) async {
@@ -124,9 +122,8 @@ class CoursesApi {
       if (token != null) 'Authorization': 'Bearer $token',
     };
 
+    // Chỉ gửi rating và comment - server sẽ lấy userId từ JWT token
     final Map<String, dynamic> bodyData = {
-      'user_id': userId,
-      'user_name': userName,
       'rating': rating,
       'comment': comment,
     };
@@ -169,6 +166,56 @@ class CoursesApi {
     } catch (e) {
       print("Lỗi khi gửi đánh giá: $e");
       return false;
+    }
+  }
+
+  // Kiểm tra xem user đã đánh giá khóa học chưa
+  static Future<Map<String, dynamic>> checkUserReview(int courseId) async {
+    final url = Uri.parse('$baseUrl/api/courses/$courseId/check-review');
+
+    // Lấy Access Token
+    String? token = await AuthHelper.getAccessToken();
+
+    final Map<String, String> headers = {
+      'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+
+    try {
+      var response = await http.get(url, headers: headers);
+
+      // Xử lý token hết hạn
+      if (response.statusCode == 401) {
+        print("[API] Access Token hết hạn, đang thử làm mới...");
+        bool isRefreshed = await AuthHelper.refreshSession();
+
+        if (isRefreshed) {
+          token = await AuthHelper.getAccessToken();
+          response = await http.get(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              if (token != null) 'Authorization': 'Bearer $token',
+            },
+          );
+        }
+      }
+
+      AppLogger.api('/api/courses/check-review', response.statusCode);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return {
+          'success': true,
+          'hasReviewed': data['hasReviewed'] ?? false,
+          'review': data['review'],
+        };
+      } else {
+        return {'success': false, 'hasReviewed': false};
+      }
+    } catch (e) {
+      AppLogger.error('Error in checkUserReview', e);
+      return {'success': false, 'hasReviewed': false};
     }
   }
 
