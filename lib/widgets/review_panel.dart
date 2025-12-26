@@ -77,9 +77,13 @@ class _ReviewPanelState extends State<ReviewPanel> {
     setState(() => _isSubmitting = true);
 
     final userId = _currentUser?.id ?? 0;
-print('Đang gửi đánh giá với userId: $userId ');
-print('Đánh giá: ${_userRating.toInt()} sao, bình luận: ${_commentController.text.trim()}');
-print('Thông tin người dùng: ${_currentUser?.username ?? 'Người dùng ẩn danh'}');
+    print('Đang gửi đánh giá với userId: $userId ');
+    print(
+      'Đánh giá: ${_userRating.toInt()} sao, bình luận: ${_commentController.text.trim()}',
+    );
+    print(
+      'Thông tin người dùng: ${_currentUser?.username ?? 'Người dùng ẩn danh'}',
+    );
     try {
       final success = await CoursesApi.submitReview(
         courseId: widget.courseId,
@@ -145,8 +149,8 @@ print('Thông tin người dùng: ${_currentUser?.username ?? 'Người dùng �
           children: [
             // _buildRatingOverview(widget.ratingStats),
             const SizedBox(height: 8),
-           _myReview != null
-                ?  Column(
+            _myReview != null
+                ? Column(
                   children: [
                     _buildSubmittedReviewBox(),
                     const SizedBox(
