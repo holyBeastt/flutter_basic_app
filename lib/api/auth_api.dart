@@ -141,6 +141,7 @@ class AuthApi {
     required String username,
     required String email,
     required String sex,
+
   }) async {
     // Validation cơ bản
     if (usernameAcc.trim().isEmpty ||

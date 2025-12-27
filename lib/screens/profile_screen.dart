@@ -6,7 +6,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../helpers/auth_helper.dart';
 import 'package:http/http.dart' as http;
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/server.dart';
 import '../api/user_api.dart';
@@ -79,70 +78,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // Hàm upload avatar lên Supabase Storage
-  // Future<String?> uploadAvatarToSupabase(File file, String userId) async {
-  //   final supabase = Supabase.instance.client;
-  //   final fileExt = file.path.split('.').last;
-  //   final fileName =
-  //       'avatar_${userId}_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
-  //   final filePath = 'avatar/$fileName';
 
-  //   try {
-  //     final fileBytes = await file.readAsBytes();
-
-  //     final response = await supabase.storage
-  //         .from('images')
-  //         .uploadBinary(
-  //           filePath,
-  //           fileBytes,
-  //           fileOptions: const FileOptions(upsert: true),
-  //         );
-
-  //     if (response.isEmpty) {
-  //       print('❌ Upload thất bại: Không có phản hồi');
-  //       return null;
-  //     }
-
-  //     final publicUrl = supabase.storage.from('images').getPublicUrl(filePath);
-
-  //     print('✅ Upload thành công. Public URL: $publicUrl');
-  //     return publicUrl;
-  //   } catch (e) {
-  //     print('❌ Lỗi khi upload: $e');
-  //     return null;
-  //   }
-  // }
-
-  Future<String?> uploadAvatarToSupabase(File file, String userId) async {
-    final supabase = Supabase.instance.client;
-
-    final fileExt = file.path.split('.').last.toLowerCase();
-    final fileName =
-        'avatar_${userId}_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
-    final filePath = 'avatar/$fileName';
-
-    try {
-      final fileBytes = await file.readAsBytes();
-
-      await supabase.storage
-          .from('images')
-          .uploadBinary(
-            filePath,
-            fileBytes,
-            fileOptions: FileOptions(
-              upsert: true,
-              contentType: 'image/$fileExt',
-            ),
-          );
-
-      final publicUrl = supabase.storage.from('images').getPublicUrl(filePath);
-
-      return publicUrl;
-    } catch (e) {
-      debugPrint('❌ Upload avatar error: $e');
-      return null;
-    }
-  }
 
   Future<void> updateUserInfo({
     String? newUsername,
@@ -344,27 +280,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (picked != null) {
       setState(() => avatarFile = File(picked.path));
-      final userId = userMap['id']?.toString() ?? '';
+      final userId = userMap['id'];
 
-      if (userId.isEmpty) {
+      if (userId == null) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('User ID không hợp lệ')));
         return;
       }
 
-      final avatarUrl = await uploadAvatarToSupabase(avatarFile!, userId);
-      print('🔍 avatarUrl =================$avatarUrl');
-      if (avatarUrl != null) {
-        await updateUserInfo(newAvatarUrl: avatarUrl);
-        setState(() {
-          userMap['avatar_url'] = avatarUrl;
-        });
-        print('Avatar URL show: ${userMap['avatar_url']}');
-      } else {
+      try {
+        // Upload qua server thay vì trực tiếp Supabase
+        final result = await UserAPI.uploadAvatar(
+          int.parse(userId.toString()),
+          avatarFile!,
+        );
+
+        final avatarUrl = result['user']?['avatar_url'];
+        debugPrint('🔍 avatarUrl from server: $avatarUrl');
+
+        if (avatarUrl != null) {
+          setState(() {
+            userMap['avatar_url'] = avatarUrl;
+          });
+          await _storage.write(key: 'user_info', value: jsonEncode(userMap));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Cập nhật avatar thành công!')));
+        }
+      } catch (e) {
+        debugPrint('❌ Upload avatar error: $e');
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Upload ảnh thất bại!')));
+        ).showSnackBar(SnackBar(content: Text('Upload ảnh thất bại: $e')));
       }
     }
   }
