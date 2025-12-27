@@ -138,7 +138,7 @@ class CoursesApi {
 
       // 4. Kiểm tra nếu Access Token hết hạn (401 Unauthorized)
       if (response.statusCode == 401) {
-        print("[API] Access Token hết hạn, đang thử làm mới...");
+        AppLogger.debug('[API] Access Token hết hạn, đang thử làm mới...');
 
         // Thực hiện cơ chế làm mới phiên làm việc
         bool isRefreshed = await AuthHelper.refreshSession();
@@ -164,7 +164,7 @@ class CoursesApi {
       // Trả về kết quả thành công (200 OK hoặc 201 Created)
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
-      print("Lỗi khi gửi đánh giá: $e");
+      AppLogger.error('Lỗi khi gửi đánh giá', e);
       return false;
     }
   }
@@ -186,7 +186,7 @@ class CoursesApi {
 
       // Xử lý token hết hạn
       if (response.statusCode == 401) {
-        print("[API] Access Token hết hạn, đang thử làm mới...");
+        AppLogger.debug('[API] Access Token hết hạn, đang thử làm mới...');
         bool isRefreshed = await AuthHelper.refreshSession();
 
         if (isRefreshed) {

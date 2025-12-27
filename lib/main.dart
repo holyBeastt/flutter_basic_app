@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 
+import 'helpers/app_logger.dart';
+import 'helpers/root_detector.dart';
 import 'routes/app_routes.dart';
 
 Future<void> main() async {
@@ -10,7 +12,10 @@ Future<void> main() async {
   // Khởi tạo media_kit
   MediaKit.ensureInitialized();
 
-  runApp(const MyApp());
+  // Kiểm tra root/jailbreak
+  final isCompromised = await RootDetector.isDeviceCompromised();
+
+  runApp(MyApp(showRootWarning: isCompromised));
 }
 
 /* -----------------------------------------------------------
@@ -23,7 +28,7 @@ class ScreenTransition {
     try {
       await _channel.invokeMethod('playZoom');
     } catch (e) {
-      print('⚠️ Lỗi gọi native OpenGL transition: $e');
+      AppLogger.error('Lỗi gọi native OpenGL transition', e);
     }
   }
 }
@@ -57,7 +62,9 @@ class _OpenGLTransitionState extends State<OpenGLTransition> {
    MyApp – TOÀN BỘ APP ĐƯỢC BỌC OPENGL WRAPPER
 ----------------------------------------------------------- */
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool showRootWarning;
+
+  const MyApp({super.key, this.showRootWarning = false});
 
   @override
   Widget build(BuildContext context) {
@@ -68,6 +75,46 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(primarySwatch: Colors.blue),
         initialRoute: AppRoutes.login,
         routes: AppRoutes.routes,
+        builder: (context, child) {
+          // Hiển thị cảnh báo root trong lần build đầu tiên
+          if (showRootWarning) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _showRootWarningDialog(context);
+            });
+          }
+          return child ?? const SizedBox.shrink();
+        },
+      ),
+    );
+  }
+
+  void _showRootWarningDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+            SizedBox(width: 8),
+            Text('Cảnh báo bảo mật'),
+          ],
+        ),
+        content: const Text(
+          'Thiết bị của bạn đã được root/jailbreak hoặc đang ở chế độ nhà phát triển.\n\n'
+          'Điều này có thể gây ra rủi ro bảo mật cho dữ liệu của bạn. '
+          'Khuyến nghị sử dụng ứng dụng trên thiết bị chưa root.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => SystemNavigator.pop(), // Thoát app
+            child: const Text('Thoát'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(), // Tiếp tục
+            child: const Text('Tôi hiểu, tiếp tục'),
+          ),
+        ],
       ),
     );
   }

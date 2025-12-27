@@ -1,3 +1,5 @@
+import '../helpers/app_logger.dart';
+
 class Course {
   final int id;
   final String? title;
@@ -95,7 +97,7 @@ class Course {
         return DateTime.parse(rawDate);
       }
     } catch (e) {
-      print('Không thể parse ngày: $rawDate. Lỗi: $e');
+      AppLogger.debug('Không thể parse ngày: $rawDate. Lỗi: $e');
     }
     return null;
   }

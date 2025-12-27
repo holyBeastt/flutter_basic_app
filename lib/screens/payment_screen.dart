@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../config/server.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'dart:async';
+import '../helpers/app_logger.dart';
 
 class PaymentScreen extends StatefulWidget {
   final Course course;
@@ -384,7 +385,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       if (selectedPaymentMethod == PaymentMethod.momo) {
         String orderId =
             '${widget.userId}_${widget.course.id}_${DateTime.now().millisecondsSinceEpoch}';
-             print('Trước khi gọi createMomoPayment');
+             AppLogger.debug('Trước khi gọi createMomoPayment');
         final response = await PaymentApi.createMomoPayment(
           user_id: widget.userId,
           course_id: widget.course.id,
@@ -396,13 +397,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
           notifyUrl: "$apiUrl/api/momo/webhook",
 
         );
-        print('===> Create MoMo payment response: $response');
+        AppLogger.debug('===> Create MoMo payment response: $response');
         if (response['success'] && response['qrData'] != null) {
           setState(() {
             momoQRData = response['qrData'];
             momoOrderId = response['orderId'] ?? orderId;
           });
-          print('===> Đã nhận QR data, bắt đầu polling status: $momoOrderId');
+          AppLogger.debug('===> Đã nhận QR data, bắt đầu polling status: $momoOrderId');
           _startPollingPaymentStatus(momoOrderId!);
         } else {
           _showErrorDialog(response['message'] ?? 'Lỗi khi tạo đơn MoMo');
@@ -454,14 +455,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
 void _startPollingPaymentStatus(String orderId) {
-  print('===> Bắt đầu polling status cho orderId: $orderId');
+  AppLogger.debug('===> Bắt đầu polling status cho orderId: $orderId');
     _pollingTimer?.cancel();
     _pollingTimer = Timer.periodic(Duration(seconds: 5), (timer) async {
       final response = await PaymentApi.checkMomoStatus(orderId);
-      print('===> Polling response: $response'); // In log ra toàn bộ response
+      AppLogger.debug('===> Polling response: $response');
 
       if (response['success'] && response['paid'] == true) {
-        print('===> Status PAID, chuyển trang');
+        AppLogger.debug('===> Status PAID, chuyển trang');
         _pollingTimer?.cancel();
         _showSuccessDialog();
       }

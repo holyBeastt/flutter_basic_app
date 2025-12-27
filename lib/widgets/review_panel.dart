@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../helpers/app_logger.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:android_basic/models/review.dart';
 import 'package:http/http.dart' as http;
@@ -51,12 +52,12 @@ class _ReviewPanelState extends State<ReviewPanel> {
       User? user;
       try {
         final userMap = await UserAPI.getUserInfo();
-        print('Thông tin user: $userMap');
+        AppLogger.debug('Thông tin user: $userMap');
         
         try {
           user = User.fromJson(userMap['user'] ?? userMap);
         } catch (parseError) {
-          print('Error parsing User.fromJson: $parseError');
+          AppLogger.error('Error parsing User.fromJson', parseError);
           final data = userMap['user'] ?? userMap;
           user = User(
             id: data['id'] as int? ?? 0,
@@ -64,23 +65,23 @@ class _ReviewPanelState extends State<ReviewPanel> {
             isActive: data['is_active'] as bool? ?? true,
           );
         }
-        print('User loaded: id=${user.id}, username=${user.username}');
+        AppLogger.debug('User loaded: id=${user.id}, username=${user.username}');
       } catch (userError) {
-        print('Lỗi getUserInfo: $userError');
+        AppLogger.error('Lỗi getUserInfo', userError);
         // Tiếp tục vì checkUserReview sẽ dùng token từ AuthHelper
       }
       
       // Gọi API để kiểm tra review từ database (sử dụng JWT token)
       final checkResult = await CoursesApi.checkUserReview(widget.courseId);
-      print('=== CHECK REVIEW RESULT ===');
-      print('success: ${checkResult['success']}');
-      print('hasReviewed: ${checkResult['hasReviewed']}');
-      print('review data: ${checkResult['review']}');
+      AppLogger.debug('=== CHECK REVIEW RESULT ===');
+      AppLogger.debug('success: ${checkResult['success']}');
+      AppLogger.debug('hasReviewed: ${checkResult['hasReviewed']}');
+      AppLogger.debug('review data: ${checkResult['review']}');
       
       Review? myReview;
       if (checkResult['success'] == true && checkResult['hasReviewed'] == true) {
         final reviewData = checkResult['review'];
-        print('reviewData: $reviewData');
+        AppLogger.debug('reviewData: $reviewData');
         if (reviewData != null) {
           myReview = Review(
             courseId: reviewData['course_id'],
@@ -92,12 +93,12 @@ class _ReviewPanelState extends State<ReviewPanel> {
             isVerified: false,
             helpfulCount: 0,
           );
-          print('myReview created!');
+          AppLogger.debug('myReview created!');
         }
       }
 
-      print('=== SETTING STATE ===');
-      print('_myReview is null: ${myReview == null}');
+      AppLogger.debug('=== SETTING STATE ===');
+      AppLogger.debug('_myReview is null: ${myReview == null}');
       
       setState(() {
         _currentUser = user;
@@ -105,7 +106,7 @@ class _ReviewPanelState extends State<ReviewPanel> {
         _isCheckingReview = false;
       });
     } catch (e) {
-      print('Lỗi trong _loadUserInfo: $e');
+      AppLogger.error('Lỗi trong _loadUserInfo', e);
       setState(() {
         _isCheckingReview = false;
       });
@@ -122,8 +123,8 @@ class _ReviewPanelState extends State<ReviewPanel> {
 
     setState(() => _isSubmitting = true);
 
-    print('Đang gửi đánh giá...');
-    print(
+    AppLogger.debug('Đang gửi đánh giá...');
+    AppLogger.debug(
       'Đánh giá: ${_userRating.toInt()} sao, bình luận: ${_commentController.text.trim()}',
     );
     try {
@@ -192,7 +193,7 @@ class _ReviewPanelState extends State<ReviewPanel> {
       }
     } catch (e) {
       setState(() => _isSubmitting = false);
-      print('Lỗi khi gửi đánh giá: $e');
+      AppLogger.error('Lỗi khi gửi đánh giá', e);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Gửi đánh giá thất bại!')));

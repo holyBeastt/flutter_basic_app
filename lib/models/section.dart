@@ -1,4 +1,5 @@
 import 'package:android_basic/models/lesson.dart';
+import '../helpers/app_logger.dart';
 
 class Section {
   final int id;
@@ -23,8 +24,8 @@ class Section {
         lessons: lessons,
       );
     } catch (e) {
-      print('Error parsing Section: $e');
-      print('JSON data: $json');
+      AppLogger.error('Error parsing Section', e);
+      AppLogger.debug('JSON data: $json');
       rethrow;
     }
   }
