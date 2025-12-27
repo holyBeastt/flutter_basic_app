@@ -1,12 +1,61 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../config/server.dart';
 import '../helpers/auth_helper.dart';
 
 class UserAPI {
   static final _storage = const FlutterSecureStorage();
+
+  /// Upload avatar qua server (multipart/form-data)
+  static Future<Map<String, dynamic>> uploadAvatar(
+    int userId,
+    File imageFile,
+  ) async {
+    final token = await AuthHelper.getAccessToken();
+    if (token == null) {
+      throw Exception('Chưa đăng nhập');
+    }
+
+    final uri = Uri.parse('$baseUrl/api/users/update/$userId');
+
+    // Lấy extension và xác định MIME type
+    final fileExt = imageFile.path.split('.').last.toLowerCase();
+    String mimeType = 'jpeg'; // default
+    if (fileExt == 'png') {
+      mimeType = 'png';
+    } else if (fileExt == 'gif') {
+      mimeType = 'gif';
+    } else if (fileExt == 'webp') {
+      mimeType = 'webp';
+    }
+
+    final request = http.MultipartRequest('PUT', uri)
+      ..headers['Authorization'] = 'Bearer $token'
+      ..files.add(await http.MultipartFile.fromPath(
+        'avatar_url',
+        imageFile.path,
+        contentType: MediaType('image', mimeType),
+      ));
+
+    final streamedResponse = await request.send();
+    final responseBody = await streamedResponse.stream.bytesToString();
+
+    if (streamedResponse.statusCode == 200) {
+      return jsonDecode(responseBody);
+    }
+
+    if (streamedResponse.statusCode == 401 || streamedResponse.statusCode == 403) {
+      throw Exception('Phiên đăng nhập hết hạn');
+    }
+
+    throw Exception(
+      'Lỗi upload avatar: ${streamedResponse.statusCode} - $responseBody',
+    );
+  }
 
   /// Lấy access token
   static Future<String?> _getToken() async {

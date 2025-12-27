@@ -94,12 +94,12 @@ class AuthApi {
       } 
       // ========== [NEW] XỬ LÝ TÀI KHOẢN BỊ KHÓA ==========
       else if (response.statusCode == 423) {
-        final remainingMinutes = responseData['remaining_minutes'] ?? 10;
+        final remainingTime = responseData['remainingTime'] ?? 60;
         return {
           'success': false,
           'locked': true, // Đánh dấu là bị khóa
           'message': responseData['error'] ?? 'Tài khoản đã bị khóa',
-          'remaining_minutes': remainingMinutes,
+          'remainingTime': remainingTime,
           'locked_until': responseData['locked_until'],
         };
       } 
@@ -141,6 +141,7 @@ class AuthApi {
     required String username,
     required String email,
     required String sex,
+
   }) async {
     // Validation cơ bản
     if (usernameAcc.trim().isEmpty ||
