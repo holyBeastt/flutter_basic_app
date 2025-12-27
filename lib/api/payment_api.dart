@@ -14,7 +14,7 @@ class PaymentApi {
   // Static storage để mô phỏng database (chỉ để demo)
   static final Map<String, bool> _purchasedCourses = {};
   static final List<Map<String, dynamic>> _paymentHistory = [];
-  // apiUrl đã được định nghĩa trong config/server.dart
+
   // Create a new payment
   static Future<Map<String, dynamic>> createPayment(Payment payment) async {
     try {
@@ -54,7 +54,7 @@ class PaymentApi {
     required int course_id,   // đổi sang int
   }) async {
     final response = await http.post(
-      Uri.parse('${apiUrl}/api/momo/create-payment'),
+      Uri.parse('${baseUrl}/api/momo/create-payment'),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
         "amount": amount,

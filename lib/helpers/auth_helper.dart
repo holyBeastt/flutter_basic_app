@@ -81,7 +81,8 @@ class AuthHelper {
     if (userStr == null) return null;
 
     final userMap = jsonDecode(userStr);
-    return userMap['username']; // Backend đã giải mã sẵn rồi mới trả về
+    // Thử lấy 'username' trước, nếu không có thì lấy 'username_acc'
+    return userMap['username'] ?? userMap['username_acc'];
   }
 
   // Lấy User ID (Ưu tiên lấy từ Storage cho nhanh, không cần decode)
