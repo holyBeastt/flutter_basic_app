@@ -121,7 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
     else if (result['locked'] == true) {
       if (!mounted) return;
       
-      final remainingMinutes = result['remaining_minutes'] ?? 10;
+      final remainingSeconds = result['remainingTime'] ?? 60;
       
       showDialog(
         context: context,
@@ -158,7 +158,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      '$remainingMinutes phút',
+                      '$remainingSeconds giây',
                       style: TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
