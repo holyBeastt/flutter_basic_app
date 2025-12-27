@@ -133,6 +133,80 @@ class AuthApi {
     }
   }
 
+  // --- 3. ĐĂNG KÝ TÀI KHOẢN MỚI ---
+  Future<Map<String, dynamic>> register({
+    required String usernameAcc,
+    required String password,
+    required String confirmPassword,
+    required String username,
+    required String email,
+    required String sex,
+  }) async {
+    // Validation cơ bản
+    if (usernameAcc.trim().isEmpty ||
+        password.trim().isEmpty ||
+        confirmPassword.trim().isEmpty ||
+        username.trim().isEmpty ||
+        email.trim().isEmpty) {
+      return {'success': false, 'message': 'Vui lòng nhập đầy đủ thông tin!'};
+    }
+
+    // Kiểm tra mật khẩu khớp
+    if (password != confirmPassword) {
+      return {'success': false, 'message': 'Mật khẩu xác nhận không khớp!'};
+    }
+
+    // Kiểm tra độ dài mật khẩu
+    if (password.length < 6) {
+      return {'success': false, 'message': 'Mật khẩu phải có ít nhất 6 ký tự!'};
+    }
+
+    // Kiểm tra email hợp lệ
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    if (!emailRegex.hasMatch(email)) {
+      return {'success': false, 'message': 'Email không hợp lệ!'};
+    }
+
+    final url = Uri.parse('$baseUrl/api/auth/user/signup');
+
+    final requestBody = jsonEncode({
+      'username_acc': usernameAcc.trim(),
+      'password': password.trim(),
+      'confirmPassword': confirmPassword.trim(),
+      'username': username.trim(),
+      'email': email.trim(),
+      'sex': sex,
+    });
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: requestBody,
+      );
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return {
+          'success': true,
+          'message': responseData['message'] ?? 'Đăng ký thành công!',
+          'data': responseData,
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseData['error'] ??
+              responseData['message'] ??
+              'Đăng ký thất bại!',
+        };
+      }
+    } catch (e) {
+      AppLogger.error('Register Error', e);
+      return {'success': false, 'message': 'Lỗi mạng: $e'};
+    }
+  }
+
   // Logout Google (Giữ nguyên)
   Future<void> logoutGoogle() async {
     await _googleSignIn.signOut();

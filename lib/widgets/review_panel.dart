@@ -33,6 +33,7 @@ class _ReviewPanelState extends State<ReviewPanel> {
   double _userRating = 0;
   final TextEditingController _commentController = TextEditingController();
   bool _isSubmitting = false;
+  bool _isCheckingReview = true; // Thêm biến để track trạng thái loading
   User? _currentUser;
   late List<Review> _reviews;
   Review? _myReview;
@@ -46,23 +47,68 @@ class _ReviewPanelState extends State<ReviewPanel> {
 
   Future<void> _loadUserInfo() async {
     try {
-      final userMap = await UserAPI.getUserInfo();
-      print('Thông tin ==================: $userMap');
-      final user = User.fromJson(userMap['user'] ?? userMap);
-      print('User parse: $user');
-      Review? myReview;
+      // Thử lấy user info
+      User? user;
       try {
-        myReview = widget.reviews.firstWhere((r) => r.userId == user.id);
-      } catch (e) {
-        myReview = null;
+        final userMap = await UserAPI.getUserInfo();
+        print('Thông tin user: $userMap');
+        
+        try {
+          user = User.fromJson(userMap['user'] ?? userMap);
+        } catch (parseError) {
+          print('Error parsing User.fromJson: $parseError');
+          final data = userMap['user'] ?? userMap;
+          user = User(
+            id: data['id'] as int? ?? 0,
+            username: data['username'] as String? ?? 'Người dùng',
+            isActive: data['is_active'] as bool? ?? true,
+          );
+        }
+        print('User loaded: id=${user.id}, username=${user.username}');
+      } catch (userError) {
+        print('Lỗi getUserInfo: $userError');
+        // Tiếp tục vì checkUserReview sẽ dùng token từ AuthHelper
+      }
+      
+      // Gọi API để kiểm tra review từ database (sử dụng JWT token)
+      final checkResult = await CoursesApi.checkUserReview(widget.courseId);
+      print('=== CHECK REVIEW RESULT ===');
+      print('success: ${checkResult['success']}');
+      print('hasReviewed: ${checkResult['hasReviewed']}');
+      print('review data: ${checkResult['review']}');
+      
+      Review? myReview;
+      if (checkResult['success'] == true && checkResult['hasReviewed'] == true) {
+        final reviewData = checkResult['review'];
+        print('reviewData: $reviewData');
+        if (reviewData != null) {
+          myReview = Review(
+            courseId: reviewData['course_id'],
+            userId: reviewData['user_id'],
+            userName: reviewData['user_name'],
+            rating: reviewData['rating'],
+            comment: reviewData['comment'],
+            createdAt: reviewData['created_at'],
+            isVerified: false,
+            helpfulCount: 0,
+          );
+          print('myReview created!');
+        }
       }
 
+      print('=== SETTING STATE ===');
+      print('_myReview is null: ${myReview == null}');
+      
       setState(() {
         _currentUser = user;
         _myReview = myReview;
+        _isCheckingReview = false;
       });
     } catch (e) {
-      print('Lỗi tải thông tin người dùng: $e');
+      print('Lỗi trong _loadUserInfo: $e');
+      setState(() {
+        _isCheckingReview = false;
+      });
     }
   }
 
@@ -76,15 +122,13 @@ class _ReviewPanelState extends State<ReviewPanel> {
 
     setState(() => _isSubmitting = true);
 
-    final userId = _currentUser?.id ?? 0;
-print('Đang gửi đánh giá với userId: $userId ');
-print('Đánh giá: ${_userRating.toInt()} sao, bình luận: ${_commentController.text.trim()}');
-print('Thông tin người dùng: ${_currentUser?.username ?? 'Người dùng ẩn danh'}');
+    print('Đang gửi đánh giá...');
+    print(
+      'Đánh giá: ${_userRating.toInt()} sao, bình luận: ${_commentController.text.trim()}',
+    );
     try {
       final success = await CoursesApi.submitReview(
         courseId: widget.courseId,
-        userId: userId,
-        userName: _currentUser?.username ?? 'Người dùng ẩn danh',
         rating: _userRating.toInt(),
         comment: _commentController.text.trim(),
       );
@@ -107,10 +151,31 @@ print('Thông tin người dùng: ${_currentUser?.username ?? 'Người dùng �
       );
 
       if (success) {
-        final newReview = Review(
+        // Gọi lại API để lấy review với username đã giải mã từ server
+        final checkResult = await CoursesApi.checkUserReview(widget.courseId);
+        
+        Review? newReview;
+        if (checkResult['success'] == true && checkResult['hasReviewed'] == true) {
+          final reviewData = checkResult['review'];
+          if (reviewData != null) {
+            newReview = Review(
+              courseId: reviewData['course_id'],
+              userId: reviewData['user_id'],
+              userName: reviewData['user_name'] ?? 'Người dùng',
+              rating: reviewData['rating'],
+              comment: reviewData['comment'],
+              createdAt: reviewData['created_at'],
+              isVerified: false,
+              helpfulCount: 0,
+            );
+          }
+        }
+        
+        // Fallback nếu checkUserReview fail
+        newReview ??= Review(
           courseId: widget.courseId,
-          userId: userId,
-          userName: _currentUser?.username ?? '',
+          userId: _currentUser?.id ?? 0,
+          userName: _currentUser?.username ?? 'Người dùng',
           rating: submittedRating,
           comment: submittedComment,
           createdAt: DateTime.now().toIso8601String(),
@@ -119,7 +184,7 @@ print('Thông tin người dùng: ${_currentUser?.username ?? 'Người dùng �
         );
 
         setState(() {
-          _reviews.insert(0, newReview);
+          _reviews.insert(0, newReview!);
           _myReview = newReview;
         });
 
@@ -145,24 +210,30 @@ print('Thông tin người dùng: ${_currentUser?.username ?? 'Người dùng �
           children: [
             // _buildRatingOverview(widget.ratingStats),
             const SizedBox(height: 8),
-           _myReview != null
-                ?  Column(
-                  children: [
-                    _buildSubmittedReviewBox(),
-                    const SizedBox(
-                      height: 24,
-                    ), // Thêm dòng này để tạo khoảng cách
-                  ],
-                )
-                : (widget.canSubmit
-                    ? _buildReviewForm()
-                    : Padding(
-                      padding: const EdgeInsets.only(top: 4, bottom: 8),
-                      child: Text(
-                        'Bạn cần đăng ký khóa học để gửi đánh giá.',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    )),
+            // Hiển thị loading khi đang kiểm tra review
+            _isCheckingReview
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
+                : (_myReview != null
+                    ? Column(
+                        children: [
+                          _buildSubmittedReviewBox(),
+                          const SizedBox(height: 24),
+                        ],
+                      )
+                    : (widget.canSubmit
+                        ? _buildReviewForm()
+                        : Padding(
+                            padding: const EdgeInsets.only(top: 4, bottom: 8),
+                            child: Text(
+                              'Bạn cần đăng ký khóa học để gửi đánh giá.',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          ))),
             Text(
               'Đánh giá từ học viên',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
