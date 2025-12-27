@@ -19,6 +19,7 @@ import 'package:intl/intl.dart'; // import để dùng NumberFormat
 import 'dart:convert';
 import 'dart:async';
 import 'dart:io' show Platform;
+import '../helpers/app_logger.dart';
 // class CourseDetailPage extends StatefulWidget {
 //   final Map<String, dynamic> course;
 
@@ -143,10 +144,10 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   }
 
   Future<void> _initializeVideo(String videoUrl) async {
-    print('Video URL from database: $videoUrl');
+    AppLogger.debug('Video URL from database: $videoUrl');
 
     if (videoUrl != null && videoUrl.isNotEmpty) {
-      print('Initializing media_kit player...');
+      AppLogger.debug('Initializing media_kit player...');
 
       try {
         await _player?.dispose();
@@ -174,21 +175,21 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         });
 
         _player!.stream.duration.listen((duration) async {
-          print('Video duration received: $duration');
+          AppLogger.debug('Video duration received: $duration');
           if (duration != null && duration > Duration.zero && mounted) {
             setState(() {
               _isVideoInitialized = true;
             });
 
             if (!_isVideoReady) {
-              print('Seeking to start after duration is available...');
+              AppLogger.debug('Seeking to start after duration is available...');
               await _player!.seek(Duration.zero);
             }
           }
         });
 
         _player!.stream.buffering.listen((isBuffering) {
-          print('Buffering state: $isBuffering');
+          AppLogger.debug('Buffering state: $isBuffering');
           if (mounted) {
             setState(() {
               _isBuffering = isBuffering;
@@ -200,7 +201,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         });
 
         _player!.stream.error.listen((error) {
-          print('Player error: $error');
+          AppLogger.error('Player error', error);
           if (mounted) {
             ScaffoldMessenger.of(
               context,
@@ -208,16 +209,16 @@ class _CourseDetailPageState extends State<CourseDetailPage>
           }
         });
 
-        print('Opening video: $videoUrl');
+        AppLogger.debug('Opening video: $videoUrl');
         await _player!.open(Media(videoUrl), play: false);
 
-        print('Video opened, seeking to start...');
+        AppLogger.debug('Video opened, seeking to start...');
         await Future.delayed(Duration(milliseconds: 500));
         await _player!.seek(Duration.zero);
 
-        print('Video setup completed');
+        AppLogger.debug('Video setup completed');
       } catch (error) {
-        print('Error initializing video: $error');
+        AppLogger.error('Error initializing video', error);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error loading video: $error')),
@@ -240,7 +241,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         _isLoadingSections = false;
       });
     } catch (e) {
-      print('Lỗi khi load section: $e');
+      AppLogger.error('Lỗi khi load section', e);
       setState(() => _isLoadingSections = false);
     }
   }
@@ -261,7 +262,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
 
       setState(() {}); // cập nhật giao diện
     } catch (e) {
-      print('Lỗi load progress: $e');
+      AppLogger.error('Lỗi load progress', e);
     }
   }
 
@@ -272,7 +273,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
       final reviews = await CoursesApi.fetchReviews(
         courseId,
       ); // Đảm bảo bạn có courseId ở widget
-      print('Loaded ================${reviews.length}');
+      AppLogger.debug('Loaded ================${reviews.length}');
       final stats = calculateRatingStats(reviews); // 👈 Gọi hàm tính thống kê
 
       setState(() {
@@ -281,7 +282,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         _isLoadingReviews = false;
       });
     } catch (e) {
-      print('Lỗi khi tải đánh giá: $e');
+      AppLogger.error('Lỗi khi tải đánh giá', e);
       setState(() {
         _isLoadingReviews = false;
       });
@@ -318,7 +319,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   // Hàm chuyển sang fullscreen và phát video
   Future<void> _playVideoFullscreen() async {
     if (!_isVideoReady) {
-      print('Video not ready yet');
+      AppLogger.debug('Video not ready yet');
       return;
     }
 
@@ -339,9 +340,9 @@ class _CourseDetailPageState extends State<CourseDetailPage>
       await _player!.seek(Duration.zero);
       await Future.delayed(Duration(milliseconds: 100));
       await _player!.play();
-      print('Video playing in fullscreen');
+      AppLogger.debug('Video playing in fullscreen');
     } catch (error) {
-      print('Error playing video: $error');
+      AppLogger.error('Error playing video', error);
     }
   }
 
@@ -384,11 +385,11 @@ class _CourseDetailPageState extends State<CourseDetailPage>
           position = duration;
         }
 
-        print('Seeking to: $position');
+        AppLogger.debug('Seeking to: $position');
         await _player!.seek(position);
         await Future.delayed(Duration(milliseconds: 200));
       } catch (error) {
-        print('Error seeking: $error');
+        AppLogger.error('Error seeking', error);
       }
     }
   }

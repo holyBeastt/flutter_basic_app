@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import '../helpers/auth_helper.dart';
+import '../helpers/app_logger.dart';
 import '../api/lesson_api.dart';
 
 import '../api/quiz_api.dart';
@@ -130,7 +131,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     // lưu vị trí cuối c��ng nếu chưa hoàn thành
     final last = player.state.position.inSeconds;
     if (!_isCompleted && last > 0) {
-      print('Saving last position: $userId');
+      AppLogger.debug('Saving last position: $userId');
       unawaited(
         ProgressApi.saveProgress(
           lessonId: widget.lessonId,
@@ -163,7 +164,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         _markPassedQuizzesUpTo(sec);
       }
     } catch (e) {
-      print("Error loading checkpoints: $e");
+      AppLogger.error('Error loading checkpoints', e);
     }
   }
 
@@ -305,7 +306,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         await player.play();
       }
     } catch (e) {
-      print('Error loading quiz: $e');
+      AppLogger.error('Error loading quiz', e);
       await player.play();
     } finally {
       _isQuizActive = false;

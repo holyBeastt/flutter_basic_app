@@ -3,7 +3,6 @@ import 'dart:math';
 import '../models/payment.dart';
 import '../config/server.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../helpers/app_logger.dart';
 
 class PaymentApi {
@@ -15,7 +14,7 @@ class PaymentApi {
   // Static storage để mô phỏng database (chỉ để demo)
   static final Map<String, bool> _purchasedCourses = {};
   static final List<Map<String, dynamic>> _paymentHistory = [];
-  static String apiUrl = dotenv.env['URL_NGROK'] ?? '';
+  // apiUrl đã được định nghĩa trong config/server.dart
   // Create a new payment
   static Future<Map<String, dynamic>> createPayment(Payment payment) async {
     try {

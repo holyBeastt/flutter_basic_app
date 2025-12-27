@@ -6,6 +6,7 @@ import '../helpers/auth_helper.dart';
 import 'package:android_basic/api/courses_api.dart';
 import 'package:android_basic/screens/search_screen.dart';
 import 'package:android_basic/widgets/cusutom_bottom_navbar.dart';
+import '../helpers/app_logger.dart';
 
 class HomeScreen extends StatefulWidget {
   final String? category;
@@ -50,16 +51,16 @@ class _HomeScreenState extends State<HomeScreen> {
         _isLoading = true;
       });
 
-      print('Calling getCoursesList API...');
+      AppLogger.debug('Calling getCoursesList API...');
       final data = await CoursesApi.getCoursesList();
-      print('API returned ${data.length} courses');
+      AppLogger.debug('API returned ${data.length} courses');
 
       setState(() {
         coursesData = data;
         _isLoading = false;
       });
     } catch (e) {
-      print('Lỗi khi lấy courses: $e');
+      AppLogger.error('Lỗi khi lấy courses', e);
       setState(() {
         _isLoading = false;
       });

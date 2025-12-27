@@ -1,3 +1,5 @@
+import '../helpers/app_logger.dart';
+
 class Lesson {
   final int id;
   final String? title;
@@ -64,8 +66,8 @@ class Lesson {
         isCompleted: false,
       );
     } catch (e) {
-      print('Error parsing Lesson: $e');
-      print('JSON data: $json');
+      AppLogger.error('Error parsing Lesson', e);
+      AppLogger.debug('JSON data: $json');
       rethrow;
     }
   }

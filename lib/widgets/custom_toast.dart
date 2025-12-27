@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import '../helpers/app_logger.dart';
 
 class CustomToast {
   static void show(BuildContext context, String message, {bool isSuccess = false}) {
-    print('CustomToast.show called - isSuccess: $isSuccess, message: $message');
+    AppLogger.debug('CustomToast.show called - isSuccess: $isSuccess, message: $message');
     
     final overlay = Overlay.of(context);
     late OverlayEntry overlayEntry;
@@ -11,8 +12,8 @@ class CustomToast {
     final Color backgroundColor = isSuccess ? Colors.green : Colors.red;
     final IconData iconData = isSuccess ? Icons.check_circle : Icons.error;
     
-    print('Background color: $backgroundColor');
-    print('Icon data: $iconData');
+    AppLogger.debug('Background color: $backgroundColor');
+    AppLogger.debug('Icon data: $iconData');
 
     overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
@@ -75,13 +76,13 @@ class CustomToast {
 
   // Phương thức tiện ích cho thông báo thành công
   static void showSuccess(BuildContext context, String message) {
-    print('CustomToast.showSuccess called with message: $message');
+    AppLogger.debug('CustomToast.showSuccess called with message: $message');
     show(context, message, isSuccess: true);
   }
 
   // Phương thức tiện ích cho thông báo lỗi
   static void showError(BuildContext context, String message) {
-    print('CustomToast.showError called with message: $message');
+    AppLogger.debug('CustomToast.showError called with message: $message');
     show(context, message, isSuccess: false);
   }
 }
