@@ -42,8 +42,6 @@ dependencies:
   media_kit_video: ^1.2.4
   media_kit_libs_video: ^1.0.4 # Native libs
   image_picker: ^1.0.0
-  supabase_flutter: ^2.3.4
-  flutter_dotenv: ^5.1.0
   intl: any
   flutter_rating_bar: ^4.0.1
   url_launcher: ^6.1.10
@@ -80,7 +78,6 @@ flutter:
   uses-material-design: true
 
   assets:
-    - .env
     - assets/google_icon.png
     - assets/apple_icon.png
     - assets/facebook_icon.png

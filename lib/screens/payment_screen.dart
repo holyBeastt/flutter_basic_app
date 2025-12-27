@@ -4,7 +4,7 @@ import '../models/payment.dart';
 import '../api/payment_api.dart';
 import '../widgets/custom_button.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../config/server.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'dart:async';
 
@@ -372,7 +372,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Future<void> _processPayment() async {
-    String urlNgrok = dotenv.env['URL_NGROK'] ?? '';
+    // apiUrl được import từ config/server.dart
     if (!_validateForm()) return;
 
     setState(() {
@@ -393,7 +393,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           orderInfo: "Thanh toán khoá học ${widget.course.title}",
           returnUrl:
               "https://your-app.com/return", // truyền URL của bạn nếu cần
-          notifyUrl: "$urlNgrok/api/momo/webhook",
+          notifyUrl: "$apiUrl/api/momo/webhook",
 
         );
         print('===> Create MoMo payment response: $response');
