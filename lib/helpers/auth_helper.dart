@@ -117,6 +117,13 @@ class AuthHelper {
     return await _storage.read(key: _kUserInfo);
   }
 
+  // Lấy user object đầy đủ
+  static Future<Map<String, dynamic>?> getUser() async {
+    final userStr = await _storage.read(key: _kUserInfo);
+    if (userStr == null) return null;
+    return jsonDecode(userStr);
+  }
+
   static Future<void> saveUserInfo(Map<String, dynamic> user) async {
     await _storage.write(key: _kUserInfo, value: jsonEncode(user));
   }
