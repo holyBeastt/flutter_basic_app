@@ -70,14 +70,36 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   Future<void> _prepareAndOpen() async {
     try {
-      // Try to fetch signed URL from server (falls back to provided url)
+      // Fetch signed URL from server - NO FALLBACK for security
       String? signed = await LessonApi.getSignedUrl(widget.lessonId);
-      final mediaUrl = signed ?? widget.url;
 
-      player.open(Media(mediaUrl));
+      if (signed == null) {
+        // Không có quyền hoặc token hết hạn → không phát video
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Bạn không có quyền xem video này'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          Navigator.pop(context);
+        }
+        return;
+      }
+
+      player.open(Media(signed));
     } catch (e) {
-      // On error, fallback to original url
-      player.open(Media(widget.url));
+      // Lỗi network → không cho xem
+      AppLogger.error('Error fetching signed URL', e);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Lỗi kết nối, vui lòng thử lại'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        Navigator.pop(context);
+      }
     }
   }
 
