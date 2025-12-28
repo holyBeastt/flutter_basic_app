@@ -21,7 +21,7 @@ class UserAPI {
       throw Exception('Chưa đăng nhập');
     }
 
-    final uri = Uri.parse('$baseUrl/api/users/update/$userId');
+    final uri = Uri.parse('$baseUrl/api/users/update');
 
     // Lấy extension và xác định MIME type
     final fileExt = imageFile.path.split('.').last.toLowerCase();
@@ -34,13 +34,16 @@ class UserAPI {
       mimeType = 'webp';
     }
 
-    final request = http.MultipartRequest('PUT', uri)
-      ..headers['Authorization'] = 'Bearer $token'
-      ..files.add(await http.MultipartFile.fromPath(
-        'avatar_url',
-        imageFile.path,
-        contentType: MediaType('image', mimeType),
-      ));
+    final request =
+        http.MultipartRequest('PUT', uri)
+          ..headers['Authorization'] = 'Bearer $token'
+          ..files.add(
+            await http.MultipartFile.fromPath(
+              'avatar_url',
+              imageFile.path,
+              contentType: MediaType('image', mimeType),
+            ),
+          );
 
     // Sử dụng AppHttpClient để gửi request qua Cronet
     final streamedResponse = await AppHttpClient.sendMultipart(request);
@@ -50,7 +53,8 @@ class UserAPI {
       return jsonDecode(responseBody);
     }
 
-    if (streamedResponse.statusCode == 401 || streamedResponse.statusCode == 403) {
+    if (streamedResponse.statusCode == 401 ||
+        streamedResponse.statusCode == 403) {
       throw Exception('Phiên đăng nhập hết hạn');
     }
 
@@ -132,8 +136,8 @@ class UserAPI {
       throw Exception('Chưa đăng nhập');
     }
 
-    final response = await AppHttpClient.put(
-      Uri.parse('$baseUrl/api/users/update/$id'),
+    final response = await http.put(
+      Uri.parse('$baseUrl/api/users/update'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',

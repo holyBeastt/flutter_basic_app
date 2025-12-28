@@ -170,14 +170,14 @@ class BiometricService {
     if (biometrics.contains(BiometricType.face)) {
       return 'Face ID';
     } else if (biometrics.contains(BiometricType.fingerprint)) {
-      return 'Vân tay';
+      return 'vân tay';
     } else if (biometrics.contains(BiometricType.iris)) {
-      return 'Mống mắt';
+      return 'mống mắt';
     } else if (biometrics.contains(BiometricType.strong)) {
-      return 'Sinh trắc học';
+      return 'vân tay';
     }
     
-    return 'Sinh trắc học';
+    return 'vân tay';
   }
 
   /// Kiểm tra tài khoản hiện tại có phải là tài khoản đã bật biometric không
