@@ -210,7 +210,7 @@ class UserAPI {
     Map<String, dynamic> data,
     String token,
   ) async {
-    return await http.put(
+    return await AppHttpClient.put(
       Uri.parse('$baseUrl/api/users/update'),
       headers: {
         'Authorization': 'Bearer $token',
