@@ -92,15 +92,13 @@ class AuthApi {
               responseData, // ✅ SỬA QUAN TRỌNG: Trả về responseData, KHÔNG PHẢI requestBody
         };
       } 
-      // ========== [NEW] XỬ LÝ TÀI KHOẢN BỊ KHÓA ==========
+      // ========== [NEW] XỬ LÝ TÀI KHOẢN CẦN XÁC THỰC MÃ ==========
       else if (response.statusCode == 423) {
-        final remainingTime = responseData['remainingTime'] ?? 60;
         return {
           'success': false,
-          'locked': true, // Đánh dấu là bị khóa
-          'message': responseData['error'] ?? 'Tài khoản đã bị khóa',
-          'remainingTime': remainingTime,
-          'locked_until': responseData['locked_until'],
+          'needsVerification': true,
+          'message': responseData['error'] ?? 'Tài khoản đang bị khóa. Vui lòng nhập mã xác thực.',
+          'username': responseData['username'] ?? username,
         };
       } 
       // ========== XỬ LÝ SAI MẬT KHẨU (CÒN LẦN THỬ) ==========
@@ -211,5 +209,203 @@ class AuthApi {
   // Logout Google (Giữ nguyên)
   Future<void> logoutGoogle() async {
     await _googleSignIn.signOut();
+  }
+
+  // --- 4. XÁC THỰC MÃ MỞ KHÓA ---
+  Future<Map<String, dynamic>> verifyUnlockCode(String username, String code) async {
+    if (username.trim().isEmpty || code.trim().isEmpty) {
+      return {'success': false, 'message': 'Vui lòng nhập đầy đủ thông tin!'};
+    }
+
+    final url = Uri.parse('$baseUrl/api/auth/user/verify-unlock-code');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'username': username.trim(),
+          'code': code.trim(),
+        }),
+      );
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'message': responseData['message'] ?? 'Xác thực thành công!',
+        };
+      } else if (response.statusCode == 410) {
+        // Mã hết hạn
+        return {
+          'success': false,
+          'codeExpired': true,
+          'message': responseData['error'] ?? 'Mã xác thực đã hết hạn.',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseData['error'] ?? 'Mã xác thực không đúng.',
+        };
+      }
+    } catch (e) {
+      AppLogger.error('Verify Unlock Code Error', e);
+      return {'success': false, 'message': 'Lỗi mạng: $e'};
+    }
+  }
+
+  // --- 5. GỬI LẠI MÃ XÁC THỰC ---
+  Future<Map<String, dynamic>> resendUnlockCode(String username) async {
+    if (username.trim().isEmpty) {
+      return {'success': false, 'message': 'Vui lòng nhập tên đăng nhập!'};
+    }
+
+    final url = Uri.parse('$baseUrl/api/auth/user/resend-unlock-code');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'username': username.trim()}),
+      );
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'message': responseData['message'] ?? 'Mã mới đã được gửi!',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseData['error'] ?? 'Không thể gửi lại mã.',
+        };
+      }
+    } catch (e) {
+      AppLogger.error('Resend Unlock Code Error', e);
+      return {'success': false, 'message': 'Lỗi mạng: $e'};
+    }
+  }
+
+  // --- 6. QUÊN MẬT KHẨU - GỬI MÃ ---
+  Future<Map<String, dynamic>> forgotPassword(String email) async {
+    if (email.trim().isEmpty) {
+      return {'success': false, 'message': 'Vui lòng nhập email!'};
+    }
+
+    final url = Uri.parse('$baseUrl/api/auth/user/forgot-password');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email.trim()}),
+      );
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'message': responseData['message'] ?? 'Mã đã được gửi về email!',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseData['error'] ?? 'Không thể gửi mã.',
+        };
+      }
+    } catch (e) {
+      AppLogger.error('Forgot Password Error', e);
+      return {'success': false, 'message': 'Lỗi mạng: $e'};
+    }
+  }
+
+  // --- 7. XÁC THỰC MÃ RESET PASSWORD ---
+  Future<Map<String, dynamic>> verifyResetCode(String email, String code) async {
+    if (email.trim().isEmpty || code.trim().isEmpty) {
+      return {'success': false, 'message': 'Vui lòng nhập đầy đủ thông tin!'};
+    }
+
+    final url = Uri.parse('$baseUrl/api/auth/user/verify-reset-code');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email.trim(),
+          'code': code.trim(),
+        }),
+      );
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'message': responseData['message'] ?? 'Mã xác thực đúng!',
+          'canResetPassword': true,
+        };
+      } else if (response.statusCode == 410) {
+        return {
+          'success': false,
+          'codeExpired': true,
+          'message': responseData['error'] ?? 'Mã đã hết hạn.',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseData['error'] ?? 'Mã xác thực không đúng.',
+        };
+      }
+    } catch (e) {
+      AppLogger.error('Verify Reset Code Error', e);
+      return {'success': false, 'message': 'Lỗi mạng: $e'};
+    }
+  }
+
+  // --- 8. ĐẶT MẬT KHẨU MỚI ---
+  Future<Map<String, dynamic>> resetPassword(String email, String code, String newPassword) async {
+    if (email.trim().isEmpty || code.trim().isEmpty || newPassword.trim().isEmpty) {
+      return {'success': false, 'message': 'Vui lòng nhập đầy đủ thông tin!'};
+    }
+
+    if (newPassword.length < 6) {
+      return {'success': false, 'message': 'Mật khẩu phải có ít nhất 6 ký tự!'};
+    }
+
+    final url = Uri.parse('$baseUrl/api/auth/user/reset-password');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email.trim(),
+          'code': code.trim(),
+          'newPassword': newPassword.trim(),
+        }),
+      );
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'message': responseData['message'] ?? 'Đặt mật khẩu mới thành công!',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseData['error'] ?? 'Không thể đặt mật khẩu mới.',
+        };
+      }
+    } catch (e) {
+      AppLogger.error('Reset Password Error', e);
+      return {'success': false, 'message': 'Lỗi mạng: $e'};
+    }
   }
 }
