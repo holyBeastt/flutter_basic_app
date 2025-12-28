@@ -136,7 +136,7 @@ class UserAPI {
       throw Exception('Chưa đăng nhập');
     }
 
-    final response = await http.put(
+    final response = await AppHttpClient.put(
       Uri.parse('$baseUrl/api/users/update'),
       headers: {
         'Authorization': 'Bearer $token',
