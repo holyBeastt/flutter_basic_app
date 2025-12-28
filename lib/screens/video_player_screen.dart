@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_windowmanager_plus/flutter_windowmanager_plus.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import '../helpers/auth_helper.dart';
@@ -48,6 +50,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   void initState() {
     super.initState();
+    _enableScreenProtection();
     getUserData();
     player = Player();
     controller = VideoController(player);
@@ -70,11 +73,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   Future<void> _prepareAndOpen() async {
     try {
-      // Fetch signed URL from server - NO FALLBACK for security
+      // Fetch signed URL from server
       String? signed = await LessonApi.getSignedUrl(widget.lessonId);
 
       if (signed == null) {
-        // Không có quyền hoặc token hết hạn → không phát video
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -89,7 +91,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
       player.open(Media(signed));
     } catch (e) {
-      // Lỗi network → không cho xem
       AppLogger.error('Error fetching signed URL', e);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -145,8 +146,33 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     return value;
   }
 
+  /// Enable screen capture/recording protection (Android only)
+  Future<void> _enableScreenProtection() async {
+    if (Platform.isAndroid) {
+      try {
+        await FlutterWindowManagerPlus.addFlags(FlutterWindowManagerPlus.FLAG_SECURE);
+        AppLogger.debug('Screen protection enabled');
+      } catch (e) {
+        AppLogger.error('Failed to enable screen protection', e);
+      }
+    }
+  }
+
+  /// Disable screen capture/recording protection
+  Future<void> _disableScreenProtection() async {
+    if (Platform.isAndroid) {
+      try {
+        await FlutterWindowManagerPlus.clearFlags(FlutterWindowManagerPlus.FLAG_SECURE);
+        AppLogger.debug('Screen protection disabled');
+      } catch (e) {
+        AppLogger.error('Failed to disable screen protection', e);
+      }
+    }
+  }
+
   @override
   void dispose() {
+    _disableScreenProtection();
     _durationSub?.cancel();
     _timer?.cancel();
 

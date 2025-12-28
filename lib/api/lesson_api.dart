@@ -6,7 +6,7 @@ import '../helpers/app_logger.dart';
 
 class LessonApi {
   /// Request signed URL for a lesson video
-  // static Future<String?> getSignedUrl(
+  // static Future<String?> (
   //   int lessonId, {
   //   int expiresIn = 3600,
   // }) async {
@@ -28,14 +28,13 @@ class LessonApi {
   //   return null;
   // }
 
-  static Future<String?> getSignedUrl(
-    int lessonId, {
-    int expiresIn = 60,
-  }) async {
+  /// Request signed URL for a lesson video
+  /// Server will determine the expiration time based on video duration
+  static Future<String?> getSignedUrl(int lessonId) async {
     String? token = await AuthHelper.getAccessToken();
 
     final url = Uri.parse(
-      '$baseUrl/api/courses/lessons/$lessonId/signed-url?expiresIn=$expiresIn',
+      '$baseUrl/api/courses/student/lessons/$lessonId/signed-url',
     );
 
     // Lần gọi 1
@@ -72,6 +71,10 @@ class LessonApi {
       return json['signedUrl'] as String?;
     }
 
+    // Log detailed error for debugging
+    AppLogger.error(
+      'Failed to get signed URL - Status: ${res.statusCode}, Body: ${res.body}',
+    );
     return null;
   }
 }

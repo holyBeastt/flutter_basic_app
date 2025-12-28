@@ -50,6 +50,7 @@ dependencies:
   webview_flutter: ^4.13.0
   google_sign_in: ^6.1.5
   local_auth: ^2.2.0
+  flutter_windowmanager_plus: ^1.0.1  # Prevent screen capture/recording
 
 dev_dependencies:
   flutter_test:
