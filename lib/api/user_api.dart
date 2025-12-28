@@ -66,23 +66,21 @@ class UserAPI {
       mimeType = 'webp';
     }
 
-    final request = http.MultipartRequest('PUT', uri)
-      ..headers['Authorization'] = 'Bearer $token'
-      ..files.add(
-        await http.MultipartFile.fromPath(
-          'avatar_url',
-          imageFile.path,
-          contentType: MediaType('image', mimeType),
-        ),
-      );
+    final request =
+        http.MultipartRequest('PUT', uri)
+          ..headers['Authorization'] = 'Bearer $token'
+          ..files.add(
+            await http.MultipartFile.fromPath(
+              'avatar_url',
+              imageFile.path,
+              contentType: MediaType('image', mimeType),
+            ),
+          );
 
     final streamedResponse = await AppHttpClient.sendMultipart(request);
     final responseBody = await streamedResponse.stream.bytesToString();
 
-    return {
-      'statusCode': streamedResponse.statusCode,
-      'body': responseBody,
-    };
+    return {'statusCode': streamedResponse.statusCode, 'body': responseBody};
   }
 
   /// Lấy access token
@@ -157,7 +155,7 @@ class UserAPI {
     int userId,
     String token,
   ) async {
-    final uri = Uri.parse('$baseUrl/api/users/$userId/get-user-info');
+    final uri = Uri.parse('$baseUrl/api/users/get-user-info');
 
     return await AppHttpClient.get(
       uri,
