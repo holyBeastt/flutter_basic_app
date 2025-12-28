@@ -1,5 +1,4 @@
 /// Server configuration - Local development
-const String baseUrl = 'http://192.168.1.39:3000';
 // const String baseUrl = 'http://192.168.0.109:3000';
 
 // Server configuration - Production

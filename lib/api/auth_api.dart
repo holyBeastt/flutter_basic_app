@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:http/http.dart' as http;
 import '../services/http_client.dart';
 import '../config/server.dart';
 import '../helpers/app_logger.dart'; // Đảm bảo baseUrl đúng: http://10.0.2.2:3000 (Android) hoặc localhost (iOS)
