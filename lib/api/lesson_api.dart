@@ -39,10 +39,14 @@ class LessonApi {
 
     // Lần gọi 1
     AppLogger.debug('Getting signed URL for lesson $lessonId');
+    AppLogger.debug('Full URL: ${url.toString()}');
+    AppLogger.debug('Token present: ${token != null}');
     var res = await http.get(
       url,
       headers: token != null ? {'Authorization': 'Bearer $token'} : {},
     );
+    AppLogger.debug('Response status: ${res.statusCode}');
+    AppLogger.debug('Response body: ${res.body}');
 
     // XỬ LÝ REFRESH TOKEN TỰ ĐỘNG
     if (res.statusCode == 401) {
