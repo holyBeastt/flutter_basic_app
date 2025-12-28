@@ -373,7 +373,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Future<void> _processPayment() async {
-    // apiUrl được import từ config/server.dart
+   
     if (!_validateForm()) return;
 
     setState(() {
@@ -394,7 +394,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           orderInfo: "Thanh toán khoá học ${widget.course.title}",
           returnUrl:
               "https://your-app.com/return", // truyền URL của bạn nếu cần
-          notifyUrl: "$apiUrl/api/momo/webhook",
+          notifyUrl: "$baseUrl/api/momo/webhook",
 
         );
         AppLogger.debug('===> Create MoMo payment response: $response');
