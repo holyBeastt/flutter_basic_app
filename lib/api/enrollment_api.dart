@@ -1,13 +1,13 @@
 import 'dart:convert';
 import 'package:android_basic/config/server.dart';
-import 'package:http/http.dart' as http;
+import '../services/http_client.dart';
 
 class EnrollmentApi {
   // Cache để lưu trạng thái đăng ký locally (thay thế cho PaymentApi storage)
   static final Map<String, bool> _enrolledCourses = {};
 
   static Future<bool> enrollCourse({required int courseId, required int userId}) async {
-    final response = await http.post(
+    final response = await AppHttpClient.post(
       Uri.parse('$baseUrl/api/enrollments/$courseId/enroll'),
       body: jsonEncode({'userId': userId}),
       headers: {'Content-Type': 'application/json'},
@@ -33,7 +33,7 @@ class EnrollmentApi {
     }
 
     // Nếu không có trong cache, gọi API
-    final response = await http.get(
+    final response = await AppHttpClient.get(
       Uri.parse('$baseUrl/api/enrollments/$courseId/check-enrollment?userId=$userId'),
     );
     if (response.statusCode == 200) {

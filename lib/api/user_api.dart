@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../services/http_client.dart';
 import '../config/server.dart';
 import '../helpers/auth_helper.dart';
 
@@ -41,7 +42,8 @@ class UserAPI {
         contentType: MediaType('image', mimeType),
       ));
 
-    final streamedResponse = await request.send();
+    // Sử dụng AppHttpClient để gửi request qua Cronet
+    final streamedResponse = await AppHttpClient.sendMultipart(request);
     final responseBody = await streamedResponse.stream.bytesToString();
 
     if (streamedResponse.statusCode == 200) {
@@ -84,7 +86,7 @@ class UserAPI {
 
     final uri = Uri.parse('$baseUrl/api/users/$userId/get-user-info');
 
-    final response = await http.get(
+    final response = await AppHttpClient.get(
       uri,
       headers: {
         'Authorization': 'Bearer $token',
@@ -130,7 +132,7 @@ class UserAPI {
       throw Exception('Chưa đăng nhập');
     }
 
-    final response = await http.put(
+    final response = await AppHttpClient.put(
       Uri.parse('$baseUrl/api/users/update/$id'),
       headers: {
         'Authorization': 'Bearer $token',

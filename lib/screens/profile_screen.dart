@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../helpers/auth_helper.dart';
-import 'package:http/http.dart' as http;
+import '../services/http_client.dart';
 
 import '../config/server.dart';
 import '../api/user_api.dart';
@@ -47,7 +47,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final userId = localUser['id']?.toString();
       if (userId == null) throw Exception('UserId null');
 
-      final response = await http.get(
+      final response = await AppHttpClient.get(
         Uri.parse('$baseUrl/api/users/$userId/get-user-info'),
         headers: {'Authorization': 'Bearer $token'},
       );

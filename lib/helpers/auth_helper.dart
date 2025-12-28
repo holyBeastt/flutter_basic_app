@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:jwt_decode/jwt_decode.dart';
 import '../config/server.dart';
-import 'package:http/http.dart' as http;
+import '../services/http_client.dart';
 import 'app_logger.dart';
 
 class AuthHelper {
@@ -48,7 +48,7 @@ class AuthHelper {
       if (refreshToken == null) return false;
 
       // Gọi API refresh token đã viết ở Backend
-      final response = await http.post(
+      final response = await AppHttpClient.post(
         Uri.parse(
           '$baseUrl/api/auth/user/refresh-token',
         ), // Đường dẫn route auth của bạn

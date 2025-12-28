@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../helpers/app_logger.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:android_basic/models/review.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:android_basic/api/courses_api.dart';
 import 'package:android_basic/api/user_api.dart';

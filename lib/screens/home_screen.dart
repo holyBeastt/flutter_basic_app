@@ -131,17 +131,31 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       color: Colors.black,
-      alignment: Alignment.centerRight,
-      child: Text(
-        username,
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-          fontSize: 16,
-        ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Nút Test Bảo Mật
+          IconButton(
+            onPressed: () {
+              Navigator.pushNamed(context, '/securityTest');
+            },
+            icon: const Icon(Icons.security, color: Colors.white),
+            tooltip: 'Test Bảo Mật HTTPS',
+          ),
+          // Username
+          Text(
+            username,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+        ],
       ),
     );
   }
+
 
   Widget _buildPromoSection() {
     return SingleChildScrollView(

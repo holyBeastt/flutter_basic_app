@@ -8,7 +8,6 @@ import 'package:android_basic/widgets/custom_widgets.dart';
 import 'package:android_basic/widgets/simple_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:http/http.dart' as http;
 import '../config/server.dart';
 import '../api/auth_api.dart';
 import '../helpers/auth_helper.dart';

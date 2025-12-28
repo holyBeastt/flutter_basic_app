@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import '../services/http_client.dart';
 import '../config/server.dart';
 import '../helpers/auth_helper.dart';
 import '../helpers/app_logger.dart';
@@ -15,7 +15,7 @@ class LessonApi {
   //     '$baseUrl/api/courses/lessons/$lessonId/signed-url?expiresIn=$expiresIn',
   //   );
 
-  //   final res = await http.get(
+  //   final res = await AppHttpClient.get(
   //     url,
   //     headers: token != null ? {'Authorization': 'Bearer $token'} : {},
   //   );
@@ -41,7 +41,7 @@ class LessonApi {
     AppLogger.debug('Getting signed URL for lesson $lessonId');
     AppLogger.debug('Full URL: ${url.toString()}');
     AppLogger.debug('Token present: ${token != null}');
-    var res = await http.get(
+    var res = await AppHttpClient.get(
       url,
       headers: token != null ? {'Authorization': 'Bearer $token'} : {},
     );
@@ -59,7 +59,7 @@ class LessonApi {
         token = await AuthHelper.getAccessToken();
 
         // Lần gọi 2 (Retry)
-        res = await http.get(
+        res = await AppHttpClient.get(
           url,
           headers: token != null ? {'Authorization': 'Bearer $token'} : {},
         );

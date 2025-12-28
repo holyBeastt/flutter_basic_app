@@ -51,6 +51,7 @@ dependencies:
   google_sign_in: ^6.1.5
   local_auth: ^2.2.0
   flutter_windowmanager_plus: ^1.0.1  # Prevent screen capture/recording
+  cronet_http: ^1.6.0
 
 dev_dependencies:
   flutter_test:

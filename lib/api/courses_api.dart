@@ -3,7 +3,7 @@ import 'package:android_basic/models/course.dart';
 import 'package:android_basic/models/review.dart';
 import 'package:android_basic/models/section.dart';
 import 'package:android_basic/models/teacher_course.dart';
-import 'package:http/http.dart' as http;
+import '../services/http_client.dart';
 import '../config/server.dart';
 import '../helpers/app_logger.dart';
 import '../helpers/auth_helper.dart';
@@ -11,7 +11,7 @@ import '../helpers/auth_helper.dart';
 class CoursesApi {
   static Future<List<Course>> getCoursesList() async {
     final url = Uri.parse('$baseUrl/api/courses/top-courses-list');
-    final response = await http.get(url);
+    final response = await AppHttpClient.get(url);
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
@@ -25,7 +25,7 @@ class CoursesApi {
 
   static Future<List<Course>> getCoursesBySearch(String query) async {
     final url = Uri.parse('$baseUrl/api/courses/search?query=$query');
-    final response = await http.get(url);
+    final response = await AppHttpClient.get(url);
     AppLogger.api('/api/courses/search', response.statusCode);
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
@@ -39,7 +39,7 @@ class CoursesApi {
 
   static Future<List<Course>> getCoursesByCategory(String category) async {
     final url = Uri.parse('$baseUrl/api/courses/category/$category');
-    final response = await http.get(url);
+    final response = await AppHttpClient.get(url);
     AppLogger.api('/api/courses/category', response.statusCode);
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
@@ -53,7 +53,7 @@ class CoursesApi {
 
   static Future<List<Section>> fetchSections(int courseId) async {
     try {
-      final response = await http.get(
+      final response = await AppHttpClient.get(
         Uri.parse('$baseUrl/api/courses/$courseId/sections'),
       );
       if (response.statusCode == 200) {
@@ -80,7 +80,7 @@ class CoursesApi {
 
   static Future<List<Review>> fetchReviews(int courseId) async {
     try {
-      final response = await http.get(
+      final response = await AppHttpClient.get(
         Uri.parse('$baseUrl/api/courses/$courseId/reviews'),
       );
 
@@ -130,7 +130,7 @@ class CoursesApi {
 
     try {
       // 3. Thực hiện gửi yêu cầu lần 1
-      var response = await http.post(
+      var response = await AppHttpClient.post(
         url,
         headers: headers,
         body: json.encode(bodyData),
@@ -148,7 +148,7 @@ class CoursesApi {
           token = await AuthHelper.getAccessToken();
 
           // 5. Thử lại (Retry) yêu cầu lần 2 với token mới
-          response = await http.post(
+          response = await AppHttpClient.post(
             url,
             headers: {
               'Content-Type': 'application/json',
@@ -182,7 +182,7 @@ class CoursesApi {
     };
 
     try {
-      var response = await http.get(url, headers: headers);
+      var response = await AppHttpClient.get(url, headers: headers);
 
       // Xử lý token hết hạn
       if (response.statusCode == 401) {
@@ -191,7 +191,7 @@ class CoursesApi {
 
         if (isRefreshed) {
           token = await AuthHelper.getAccessToken();
-          response = await http.get(
+          response = await AppHttpClient.get(
             url,
             headers: {
               'Content-Type': 'application/json',
@@ -227,7 +227,7 @@ class CoursesApi {
   //   required String comment,
   // }) async {
   //   final url = Uri.parse('$baseUrl/api/courses/$courseId/reviews');
-  //   final response = await http.post(
+  //   final response = await AppHttpClient.post(
   //     url,
   //     headers: {'Content-Type': 'application/json'},
   //     body: json.encode({
@@ -245,7 +245,7 @@ class CoursesApi {
 
   static Future<TeacherInfoResponse> fetchTeacherInfo(int userID) async {
     try {
-      final response = await http.get(
+      final response = await AppHttpClient.get(
         Uri.parse('$baseUrl/api/courses/$userID/gv-info'),
       );
 
@@ -286,7 +286,7 @@ class CoursesApi {
   static Future<Map<String, List<Course>>> fetchPersonalCourses(
     int userID,
   ) async {
-    final response = await http.get(
+    final response = await AppHttpClient.get(
       Uri.parse(
         '$baseUrl/api/v1/personal-courses/$userID/personal-courses-list',
       ),

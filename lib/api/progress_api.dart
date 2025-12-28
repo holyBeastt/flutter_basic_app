@@ -1,6 +1,6 @@
 // lib/api/progress_api.dart
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import '../services/http_client.dart';
 import '../config/server.dart';
 import '../helpers/app_logger.dart'; // chứa baseUrl
 
@@ -17,7 +17,7 @@ class ProgressApi {
     AppLogger.debug(
       'saveProgress: lessonId=$lessonId, seconds=$seconds, userId=$userId',
     );
-    final res = await http.post(
+    final res = await AppHttpClient.post(
       url,
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -37,7 +37,7 @@ class ProgressApi {
   /// -------------------------------
   static Future<void> markCompleted(int lessonId, int userId) async {
     final url = Uri.parse('$baseUrl/api/v1/progress/complete');
-    final res = await http.post(
+    final res = await AppHttpClient.post(
       url,
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'lessonId': lessonId, 'userId': userId}),
@@ -54,7 +54,7 @@ class ProgressApi {
   /// -------------------------------
   static Future<Map<int, bool>> fetchCourseProgress(int courseId) async {
     final url = Uri.parse('$baseUrl/api/progress/$courseId');
-    final res = await http.get(url);
+    final res = await AppHttpClient.get(url);
 
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
@@ -71,7 +71,7 @@ class ProgressApi {
   static Future<int?> getProgress(int lessonId, int userId) async {
     final url = Uri.parse('$baseUrl/api/v1/progress/$lessonId');
     AppLogger.debug('getProgress: lessonId=$lessonId, userId=$userId');
-    final res = await http.get(
+    final res = await AppHttpClient.get(
       url,
       headers: {
         'user-id': '$userId', // 👈 gửi thủ công
@@ -93,7 +93,7 @@ class ProgressApi {
 
   static Future<Map<int, bool>> getAllProgressForUser(int userId) async {
     final url = Uri.parse('$baseUrl/api/v1/progress-all/user/$userId');
-    final res = await http.get(url);
+    final res = await AppHttpClient.get(url);
 
     if (res.statusCode == 200) {
       final raw = jsonDecode(res.body) as Map<String, dynamic>;

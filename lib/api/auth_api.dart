@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:http/http.dart' as http;
+import '../services/http_client.dart';
 import '../config/server.dart';
 import '../helpers/app_logger.dart'; // Đảm bảo baseUrl đúng: http://10.0.2.2:3000 (Android) hoặc localhost (iOS)
 
@@ -31,7 +31,7 @@ class AuthApi {
       }
 
       // Gọi Server
-      final response = await http.post(
+      final response = await AppHttpClient.post(
         Uri.parse('$baseUrl/api/auth/user/google-login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -75,7 +75,7 @@ class AuthApi {
     });
 
     try {
-      final response = await http.post(
+      final response = await AppHttpClient.post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: requestBody,
@@ -180,7 +180,7 @@ class AuthApi {
     });
 
     try {
-      final response = await http.post(
+      final response = await AppHttpClient.post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: requestBody,

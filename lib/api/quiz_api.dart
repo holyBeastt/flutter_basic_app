@@ -1,6 +1,6 @@
 // lib/api/quiz_api.dart
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import '../services/http_client.dart';
 import '../config/server.dart';
 
 class QuizApi {
@@ -10,7 +10,7 @@ class QuizApi {
     final url = Uri.parse('$baseUrl/api/v1/checkpoints/$lessonId');
 
     try {
-      final response = await http.get(url);
+      final response = await AppHttpClient.get(url);
 
       if (response.statusCode == 200) {
         final List data = json.decode(response.body);
@@ -27,7 +27,7 @@ class QuizApi {
     final url = Uri.parse('$baseUrl/api/v1/quiz/$quizId/questions');
 
     try {
-      final response = await http.get(url);
+      final response = await AppHttpClient.get(url);
 
       if (response.statusCode == 200) {
         final List data = json.decode(response.body);

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import '../models/payment.dart';
 import '../config/server.dart';
-import 'package:http/http.dart' as http;
+import '../services/http_client.dart';
 import '../helpers/app_logger.dart';
 
 class PaymentApi {
@@ -53,7 +53,7 @@ class PaymentApi {
     required int user_id,     // đổi sang int
     required int course_id,   // đổi sang int
   }) async {
-    final response = await http.post(
+    final response = await AppHttpClient.post(
       Uri.parse('${baseUrl}/api/momo/create-payment'),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
@@ -70,7 +70,7 @@ class PaymentApi {
   }
 
 static Future<Map<String, dynamic>> checkMomoStatus(String orderId) async {
-    final res = await http.get(
+    final res = await AppHttpClient.get(
       Uri.parse('${baseUrl}/api/momo/check-status?orderId=$orderId'),
     );
     try {
