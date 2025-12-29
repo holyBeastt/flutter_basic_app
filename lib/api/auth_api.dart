@@ -9,7 +9,6 @@ import '../helpers/app_logger.dart'; // Đảm bảo baseUrl đúng: http://10.0
 class AuthApi {
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: ['email'],
-    // Thay bằng Web Client ID của bạn
     serverClientId:
         '1002429183208-3r4dlqhen80lhiketnlq0neh59rp8b25.apps.googleusercontent.com',
   );
@@ -92,33 +91,34 @@ class AuthApi {
           'data':
               responseData, // ✅ SỬA QUAN TRỌNG: Trả về responseData, KHÔNG PHẢI requestBody
         };
-      } 
+      }
       // ========== [NEW] XỬ LÝ TÀI KHOẢN CẦN XÁC THỰC MÃ ==========
       else if (response.statusCode == 423) {
         return {
           'success': false,
           'needsVerification': true,
-          'message': responseData['error'] ?? 'Tài khoản đang bị khóa. Vui lòng nhập mã xác thực.',
+          'message':
+              responseData['error'] ??
+              'Tài khoản đang bị khóa. Vui lòng nhập mã xác thực.',
           'username': responseData['username'] ?? username,
         };
-      } 
+      }
       // ========== XỬ LÝ SAI MẬT KHẨU (CÒN LẦN THỬ) ==========
       else if (response.statusCode == 401) {
         final attemptsRemaining = responseData['attempts_remaining'];
         String message = responseData['error'] ?? 'Đăng nhập thất bại!';
-        
+
         // Nếu có thông tin số lần còn lại
         if (attemptsRemaining != null) {
           message = 'Sai mật khẩu. Còn $attemptsRemaining lần thử.';
         }
-        
+
         return {
           'success': false,
           'message': message,
           'attempts_remaining': attemptsRemaining,
         };
-      } 
-      else {
+      } else {
         return {
           'success': false,
           'message':
@@ -140,7 +140,6 @@ class AuthApi {
     required String username,
     required String email,
     required String sex,
-
   }) async {
     // Validation cơ bản
     if (usernameAcc.trim().isEmpty ||
@@ -196,7 +195,8 @@ class AuthApi {
       } else {
         return {
           'success': false,
-          'message': responseData['error'] ??
+          'message':
+              responseData['error'] ??
               responseData['message'] ??
               'Đăng ký thất bại!',
         };
@@ -213,7 +213,10 @@ class AuthApi {
   }
 
   // --- 4. XÁC THỰC MÃ MỞ KHÓA ---
-  Future<Map<String, dynamic>> verifyUnlockCode(String username, String code) async {
+  Future<Map<String, dynamic>> verifyUnlockCode(
+    String username,
+    String code,
+  ) async {
     if (username.trim().isEmpty || code.trim().isEmpty) {
       return {'success': false, 'message': 'Vui lòng nhập đầy đủ thông tin!'};
     }
@@ -224,10 +227,7 @@ class AuthApi {
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'username': username.trim(),
-          'code': code.trim(),
-        }),
+        body: jsonEncode({'username': username.trim(), 'code': code.trim()}),
       );
 
       final responseData = jsonDecode(response.body);
@@ -325,7 +325,10 @@ class AuthApi {
   }
 
   // --- 7. XÁC THỰC MÃ RESET PASSWORD ---
-  Future<Map<String, dynamic>> verifyResetCode(String email, String code) async {
+  Future<Map<String, dynamic>> verifyResetCode(
+    String email,
+    String code,
+  ) async {
     if (email.trim().isEmpty || code.trim().isEmpty) {
       return {'success': false, 'message': 'Vui lòng nhập đầy đủ thông tin!'};
     }
@@ -336,10 +339,7 @@ class AuthApi {
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': email.trim(),
-          'code': code.trim(),
-        }),
+        body: jsonEncode({'email': email.trim(), 'code': code.trim()}),
       );
 
       final responseData = jsonDecode(response.body);
@@ -369,8 +369,14 @@ class AuthApi {
   }
 
   // --- 8. ĐẶT MẬT KHẨU MỚI ---
-  Future<Map<String, dynamic>> resetPassword(String email, String code, String newPassword) async {
-    if (email.trim().isEmpty || code.trim().isEmpty || newPassword.trim().isEmpty) {
+  Future<Map<String, dynamic>> resetPassword(
+    String email,
+    String code,
+    String newPassword,
+  ) async {
+    if (email.trim().isEmpty ||
+        code.trim().isEmpty ||
+        newPassword.trim().isEmpty) {
       return {'success': false, 'message': 'Vui lòng nhập đầy đủ thông tin!'};
     }
 
