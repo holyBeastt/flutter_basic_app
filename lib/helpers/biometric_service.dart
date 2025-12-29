@@ -163,20 +163,8 @@ class BiometricService {
     return true;
   }
 
-  /// Lấy tên loại biometric
+  /// Lấy tên loại biometric (chỉ hỗ trợ vân tay)
   static Future<String> getBiometricTypeName() async {
-    final biometrics = await getAvailableBiometrics();
-    
-    if (biometrics.contains(BiometricType.face)) {
-      return 'Face ID';
-    } else if (biometrics.contains(BiometricType.fingerprint)) {
-      return 'vân tay';
-    } else if (biometrics.contains(BiometricType.iris)) {
-      return 'mống mắt';
-    } else if (biometrics.contains(BiometricType.strong)) {
-      return 'vân tay';
-    }
-    
     return 'vân tay';
   }
 
